@@ -7,7 +7,7 @@ interface ThreeBackgroundProps {
   className?: string;
 }
 
-export const ThreeBackground: React.FC<ThreeBackgroundProps> = ({ className }) => {
+export function ThreeBackground({ className }: ThreeBackgroundProps) {
   const mountRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -83,32 +83,52 @@ export const ThreeBackground: React.FC<ThreeBackgroundProps> = ({ className }) =
         uMouse: { value: new THREE.Vector2(0, 0) },
       },
       vertexShader: `
+        precision mediump float;
+
         attribute float size;
         attribute vec3 color;
+
         varying vec3 vColor;
         varying float vAlpha;
+
         uniform float uTime;
         uniform vec2 uMouse;
+
         void main() {
           vColor = color;
+
           vec3 pos = position;
+
           float dist = length(position.xy - uMouse * 40.0);
           float wave = sin(pos.x * 0.18 + uTime * 1.2) * cos(pos.y * 0.18 + uTime * 0.9) * 3.5;
           float ripple = sin(dist * 0.3 - uTime * 2.5) * (1.0 / (1.0 + dist * 0.15)) * 6.0;
+
           pos.z += wave + ripple;
           vAlpha = 0.35 + 0.65 * (pos.z + 10.0) / 20.0;
+
           vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-          gl_PointSize = size * (200.0 / -mvPosition.z);
+
+          // Avoid divide-by-zero / NaNs
+          float z = max(0.001, -mvPosition.z);
+          gl_PointSize = size * (200.0 / z);
+
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
       fragmentShader: `
+        precision mediump float;
+
         varying vec3 vColor;
         varying float vAlpha;
+
         void main() {
           float d = length(gl_PointCoord - 0.5);
+
           if (d > 0.5) discard;
+
           float alpha = smoothstep(0.5, 0.1, d) * vAlpha;
+          alpha = clamp(alpha, 0.0, 1.0);
+
           gl_FragColor = vec4(vColor, alpha);
         }
       `,

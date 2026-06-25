@@ -18,6 +18,71 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Badge } from "@/components/ui/Badge";
 import { BarChart3, Activity, Coins, Clock } from "lucide-react";
 
+type ChapterHeaderProps = {
+  step: string;
+  title: string;
+  subtitle: string;
+};
+
+function DashboardChapterHeader({ step, title, subtitle }: ChapterHeaderProps) {
+  const [tilt, setTilt] = React.useState({ rx: 0, ry: 0 });
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-surface/20 glass-panel">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_10%,rgba(91,231,196,0.18),transparent_45%),radial-gradient(circle_at_85%_40%,rgba(56,189,248,0.12),transparent_55%)]" />
+      <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent-muted blur-2xl opacity-80" />
+      <div className="pointer-events-none absolute -left-24 -bottom-24 h-64 w-64 rounded-full bg-[rgba(56,189,248,0.08)] blur-2xl opacity-70" />
+
+      <div className="relative p-6 sm:p-8">
+        <div
+          className="transition-transform duration-200 will-change-transform"
+          style={{
+            transform: `perspective(900px) rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`,
+          }}
+          onMouseMove={(e) => {
+            const el = e.currentTarget;
+            const rect = el.getBoundingClientRect();
+            const px = (e.clientX - rect.left) / rect.width;
+            const py = (e.clientY - rect.top) / rect.height;
+            const ry = (px - 0.5) * 8;
+            const rx = (0.5 - py) * 6;
+            setTilt({ rx, ry });
+          }}
+          onMouseLeave={() => setTilt({ rx: 0, ry: 0 })}
+        >
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl border border-accent/20 bg-[rgba(91,231,196,0.08)] flex items-center justify-center text-accent font-black">
+                  {step}
+                </div>
+                <div className="h-px w-10 bg-gradient-to-r from-accent/70 to-transparent" />
+                <p className="text-[11px] font-bold uppercase tracking-widest text-muted">
+                  Chapter
+                </p>
+              </div>
+              <h2 className="font-h1 font-bold text-foreground">{title}</h2>
+              <p className="text-xs text-muted max-w-2xl">{subtitle}</p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-2 rounded-xl border border-border/60 bg-surface/20 px-4 py-2">
+                <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+                <span className="text-[10px] font-semibold text-foreground/80">Story mode</span>
+              </div>
+              <div className="hidden md:flex h-10 w-10 rounded-xl border border-border/60 bg-surface/20 items-center justify-center">
+                <span className="text-accent font-black text-lg">▣</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 h-px w-full bg-gradient-to-r from-accent/50 via-border/40 to-transparent" />
+      </div>
+    </div>
+  );
+}
+
 // Mock statistics datasets
 const executionHistory = [
   { day: "Mon", runs: 4200, latency: 2.1 },

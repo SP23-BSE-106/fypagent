@@ -46,9 +46,13 @@ export default function LoginPage() {
           {/* Brand header */}
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-8.5 w-8.5 items-center justify-center rounded-lg bg-accent text-[#0B0F14] font-bold">
-                AF
-              </div>
+            <img
+              src="/logo1.png"
+              alt="AgentFlow"
+              style={{ objectFit: "contain", background: "transparent" }}
+              className="h-10 w-10 rounded-lg overflow-hidden"
+            />
+
               <span className="text-base font-extrabold tracking-tight">AgentFlow</span>
             </Link>
           </div>

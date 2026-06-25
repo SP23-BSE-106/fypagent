@@ -1,0 +1,6 @@
+- [ ] Inspect and understand current landing implementation (src/app/page.tsx, ThreeBackground, PublicLayout, Navbar)
+- [ ] Replace hardcoded landing background/text colors in src/app/page.tsx with theme tokens (bg-background/bg-surface/text-foreground)
+- [ ] Add continuous storytelling “StoryRail” sticky element driven by scroll (framer-motion useScroll/useTransform) across the landing page sections
+- [ ] Reposition/extend ThreeBackground so the 3D feel persists beyond the hero right-side split (render as a full-landing background layer behind the story/chapters)
+- [ ] Add micro-interactions + scroll parallax for section backdrops (subtle)
+- [ ] Verify mobile + reduced-motion behavior and run the dev server for sanity check

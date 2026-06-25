@@ -53,9 +53,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       {/* Brand logo header */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-border/40">
         <Link href="/dashboard" className="flex items-center gap-3.5 select-none overflow-hidden">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-[#0B0F14] font-bold shadow-[0_0_15px_rgba(91,231,196,0.25)] flex-shrink-0">
-            AF
-          </div>
+          <img
+            src="/logo1.png"
+            alt="AgentFlow"
+            style={{ objectFit: "contain", background: "transparent" }}
+            className="h-10 w-10 rounded-lg overflow-hidden"
+          />
+
+
           {!isCollapsed && (
             <motion.span
               initial={{ opacity: 0 }}

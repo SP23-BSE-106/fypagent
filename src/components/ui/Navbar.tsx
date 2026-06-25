@@ -23,11 +23,16 @@ export const Navbar: React.FC = () => {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-[#0B0F14] font-bold shadow-[0_0_15px_rgba(91,231,196,0.25)]">
-              AF
-            </div>
+          <Link href="/" className="flex items-center ">
+            <img
+              src="/logo1.png"
+              alt="AgentFlow"
+              style={{ objectFit: "contain", background: "transparent" }}
+              className="h-10 w-10 rounded-lg overflow-hidden"
+            />
+
             <span className="text-lg font-extrabold tracking-tight bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
+
               AgentFlow
             </span>
           </Link>

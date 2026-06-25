@@ -57,16 +57,18 @@ export function ThreeBackground({ className }: ThreeBackgroundProps) {
     let idx = 0;
     for (let ix = 0; ix < GRID_W; ix++) {
       for (let iy = 0; iy < GRID_H; iy++) {
-        positions[idx * 3]     = (ix - GRID_W / 2) * SPACING;
+        positions[idx * 3] = (ix - GRID_W / 2) * SPACING;
         positions[idx * 3 + 1] = (iy - GRID_H / 2) * SPACING;
         positions[idx * 3 + 2] = 0;
 
         const edge = Math.min(ix, GRID_W - 1 - ix, iy, GRID_H - 1 - iy);
         const t = Math.pow(edge / (Math.min(GRID_W, GRID_H) / 2), 1.5);
         const col = dimColor.clone().lerp(accentColor, t * 0.35);
-        colors[idx * 3]     = col.r;
+
+        colors[idx * 3] = col.r;
         colors[idx * 3 + 1] = col.g;
         colors[idx * 3 + 2] = col.b;
+
         sizes[idx] = 1.8 + Math.random() * 2.2;
         idx++;
       }
@@ -74,8 +76,8 @@ export function ThreeBackground({ className }: ThreeBackgroundProps) {
 
     const particleGeo = new THREE.BufferGeometry();
     particleGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    particleGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-    particleGeo.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
+    particleGeo.setAttribute("aColor", new THREE.BufferAttribute(colors, 3));
+    particleGeo.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
 
     const particleMat = new THREE.ShaderMaterial({
       uniforms: {
@@ -85,8 +87,8 @@ export function ThreeBackground({ className }: ThreeBackgroundProps) {
       vertexShader: `
         precision mediump float;
 
-        attribute float size;
-        attribute vec3 color;
+        attribute float aSize;
+        attribute vec3 aColor;
 
         varying vec3 vColor;
         varying float vAlpha;
@@ -95,7 +97,7 @@ export function ThreeBackground({ className }: ThreeBackgroundProps) {
         uniform vec2 uMouse;
 
         void main() {
-          vColor = color;
+          vColor = aColor;
 
           vec3 pos = position;
 
@@ -110,7 +112,7 @@ export function ThreeBackground({ className }: ThreeBackgroundProps) {
 
           // Avoid divide-by-zero / NaNs
           float z = max(0.001, -mvPosition.z);
-          gl_PointSize = size * (200.0 / z);
+          gl_PointSize = aSize * (200.0 / z);
 
           gl_Position = projectionMatrix * mvPosition;
         }
@@ -134,7 +136,7 @@ export function ThreeBackground({ className }: ThreeBackgroundProps) {
       `,
       transparent: true,
       depthWrite: false,
-      vertexColors: true,
+      blending: THREE.AdditiveBlending,
     });
 
     const particles = new THREE.Points(particleGeo, particleMat);
@@ -195,7 +197,6 @@ export function ThreeBackground({ className }: ThreeBackgroundProps) {
     glow.position.set(28, 5, -10);
     scene.add(glow);
 
-    // ── MOUSE HANDLER ──────────────────────────────────────────────────
     // ── MOUSE HANDLER (rAF throttled) ─────────────────────────────────────
     let mouseTargetX = mouse.x;
     let mouseTargetY = mouse.y;
@@ -242,11 +243,11 @@ export function ThreeBackground({ className }: ThreeBackgroundProps) {
       targetRotation.x += (mouse.y * 0.3 - targetRotation.x) * 0.05;
       targetRotation.y += (mouse.x * 0.3 - targetRotation.y) * 0.05;
 
+      const mx = Math.max(-1, Math.min(1, mouse.x));
+      const my = Math.max(-1, Math.min(1, mouse.y));
+
       particleMat.uniforms.uTime.value = t;
-      particleMat.uniforms.uMouse.value.set(
-        Math.max(-1, Math.min(1, mouse.x)),
-        Math.max(-1, Math.min(1, mouse.y))
-      );
+      particleMat.uniforms.uMouse.value.set(mx, my);
 
       particles.rotation.x = targetRotation.x * 0.35;
       particles.rotation.y = targetRotation.y * 0.35;
@@ -318,4 +319,4 @@ export function ThreeBackground({ className }: ThreeBackgroundProps) {
       style={{ position: "absolute", inset: 0, overflow: "hidden" }}
     />
   );
-};
+}

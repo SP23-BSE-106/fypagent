@@ -1,27 +1,66 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Sliders, Key, User, Shield, Check } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+
 export default function SettingsPage() {
-  const [profileName, setProfileName] = React.useState("John Doe");
-  const [profileEmail, setProfileEmail] = React.useState("john@agentflow.ai");
-  const [openaiKey, setOpenaiKey] = React.useState("sk-proj-••••••••••••••••••••••••");
-  const [anthropicKey, setAnthropicKey] = React.useState("sk-ant-••••••••••••••••••••••••");
+  const router = useRouter();
+  const [user, setUser] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [profileName, setProfileName] = React.useState("");
+  const [profileEmail, setProfileEmail] = React.useState("");
+  const [openaiKey, setOpenaiKey] = React.useState("");
+  const [anthropicKey, setAnthropicKey] = React.useState("");
   const [ollamaUrl, setOllamaUrl] = React.useState("http://localhost:11434");
-  
+
+  React.useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUser(user);
+          setProfileName(user.user_metadata?.full_name || "");
+          setProfileEmail(user.email || "");
+        } else {
+          router.push("/login");
+        }
+      } catch (err) {
+        console.error("Error fetching user:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUser();
+  }, [router]);
+
   const [isSaved, setIsSaved] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted text-xs">Loading...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsSaving(true);
     setTimeout(() => {
-      setIsLoading(false);
+      setIsSaving(false);
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 2500);
     }, 1000);
@@ -30,7 +69,6 @@ export default function SettingsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-8 select-none text-left">
-        {/* Header */}
         <div className="space-y-1">
           <h2 className="font-h1 font-bold text-foreground">Global Settings</h2>
           <p className="text-xs text-muted">
@@ -39,9 +77,7 @@ export default function SettingsPage() {
         </div>
 
         <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          {/* Main settings options columns */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Account Profile Card */}
             <Card className="p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="h-9.5 w-9.5 rounded-lg bg-accent-muted flex items-center justify-center text-accent">
@@ -70,7 +106,6 @@ export default function SettingsPage() {
               </div>
             </Card>
 
-            {/* Model Credentials config */}
             <Card className="p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="h-9.5 w-9.5 rounded-lg bg-accent-muted flex items-center justify-center text-accent">
@@ -108,7 +143,6 @@ export default function SettingsPage() {
             </Card>
           </div>
 
-          {/* Right Action panel */}
           <div className="space-y-6">
             <Card className="p-5 space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Save Configuration</h4>
@@ -116,7 +150,7 @@ export default function SettingsPage() {
                 Changes take effect across the active node executor instantly. Saved keys are encrypted locally on the browser.
               </p>
               <div className="h-[1px] bg-border/40 w-full" />
-              <Button type="submit" className="w-full text-xs font-semibold" isLoading={isLoading}>
+              <Button type="submit" className="w-full text-xs font-semibold" isLoading={isSaving}>
                 {isSaved ? (
                   <>
                     <Check className="h-4 w-4 mr-1.5" />

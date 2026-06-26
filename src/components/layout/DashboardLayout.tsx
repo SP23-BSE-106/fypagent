@@ -3,10 +3,15 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 import { Bell, Search, HelpCircle } from "lucide-react";
 import { Sidebar } from "@/components/ui/Sidebar";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { useEffect, useState } from "react";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
 const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -25,8 +30,31 @@ const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname();
+  const [user, setUser] = React.useState<any>(null);
+  const [userLoading, setUserLoading] = React.useState(true);
 
-  // Determine current page section title
+  React.useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+      } catch (err) {
+        console.error("Error fetching user:", err);
+      } finally {
+        setUserLoading(false);
+      }
+    };
+    fetchUser();
+  }, []);
+
+  const getUserInitials = () => {
+    if (!user) return "??";
+    const name = user.user_metadata?.full_name || user.email || "";
+    if (name) return name.split(" ").map((p: string) => p[0]).join("").toUpperCase().slice(0, 2);
+    return "??";
+  };
+
   const getPageTitle = () => {
     if (pathname === "/dashboard") return "Overview";
     if (pathname.includes("/agents/create")) return "Agent Creator";
@@ -40,21 +68,15 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      {/* Navigation Sidebar */}
       <Sidebar />
-
-      {/* Main Panel View */}
       <div className="flex flex-col flex-1 h-full min-w-0 overflow-hidden">
-        {/* Top Control Bar */}
         <header className="relative h-16 flex items-center justify-between px-6 border-b border-border/60 bg-surface/35 backdrop-blur-md flex-shrink-0">
-          {/* subtle accent glow */}
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_0%,rgba(91,231,196,0.22),transparent_55%)] opacity-60" />
           <div className="relative flex items-center justify-between flex-1">
             <div className="flex items-center gap-4 flex-1">
               <h1 className="text-sm font-bold text-foreground tracking-tight select-none">
                 {getPageTitle()}
               </h1>
-
               <div className="hidden sm:flex max-w-xs w-full relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted" />
                 <input
@@ -64,7 +86,6 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
                 />
               </div>
             </div>
-
             <div className="flex items-center gap-3 relative">
               <a
                 href="https://github.com"
@@ -74,30 +95,24 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
               >
                 <GithubIcon className="h-4 w-4" />
               </a>
-
               <button className="relative text-muted hover:text-foreground transition-colors p-1.5 hover:bg-surface-light rounded-md hover:shadow-[0_0_22px_-10px_rgba(91,231,196,0.35)]">
                 <Bell className="h-4 w-4" />
                 <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
               </button>
-
               <Link href="/docs">
                 <button className="text-muted hover:text-foreground transition-colors p-1.5 hover:bg-surface-light rounded-md hover:shadow-[0_0_22px_-10px_rgba(91,231,196,0.35)]">
                   <HelpCircle className="h-4 w-4" />
                 </button>
               </Link>
-
               <div className="h-4 w-[1px] bg-border/60 mx-1" />
-
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-full bg-accent/20 flex items-center justify-center text-[10px] font-bold text-accent border border-accent/20">
-                  JD
+                  {userLoading ? "..." : getUserInitials()}
                 </div>
               </div>
             </div>
           </div>
         </header>
-
-        {/* Dynamic Inner Content */}
         <main className="flex-1 overflow-y-auto p-6 bg-[linear-gradient(to_bottom,rgba(19,26,35,0.55),rgba(11,15,20,0.35))]">
           <div className="mx-auto max-w-7xl h-full relative">
             {children}

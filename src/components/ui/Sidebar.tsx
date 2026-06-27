@@ -3,7 +3,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { LayoutDashboard, Cpu, GitBranch, Database, Terminal, CloudLightning, BarChart3, Sliders, ChevronLeft, ChevronRight, BookOpen, Boxes, LogOut } from "lucide-react";
+import { LayoutDashboard, Cpu, GitBranch, Database, Terminal, CloudLightning, BarChart3, Sliders, ChevronLeft, ChevronRight, BookOpen, Boxes, LogOut, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -45,6 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     { name: "Templates", href: "/dashboard/templates", icon: Boxes },
     { name: "Documentation", href: "/docs", icon: BookOpen },
     { name: "Settings", href: "/dashboard/settings", icon: Sliders },
+    { name: "Billing", href: "/dashboard/payment", icon: CreditCard },
   ];
   const getUserInitials = () => {
     if (!user) return "??";

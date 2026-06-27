@@ -1,0 +1,1 @@
+use client\nimport { NextRequest, NextResponse } from next/server\nimport { createClient } from @supabase/supabase-js\nexport async function POST(request: NextRequest)\n{ const body = await request.json(); const { prompt } = body;\nreturn NextResponse.json({ workflow: { name: generated, nodes: [] } });

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -54,7 +54,7 @@ export default function SignupPage() {
           <form onSubmit={handleSignup} className="space-y-3.5">
             <Input label="Full Name" type="text" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
             <Input label="Email Address" type="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <div className="space-y-1"><label className="text-xs font-semibold text-muted tracking-wide uppercase">Password</label><input type="password" placeholder="Create a password" value={password} onChange={(e) => setPassword(e.target.value)} required className="flex w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted/60 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/30" /></div>
+            <Input label="Password" type="password" placeholder="Create a password" value={password} onChange={(e) => setPassword(e.target.value)} required showPasswordToggle />
             <div className="flex items-start mt-2"><input id="terms" type="checkbox" required className="h-4 w-4 rounded border-border bg-surface text-accent" /><label htmlFor="terms" className="ml-2.5 text-[11px] text-muted">I agree to the <span className="text-accent underline">Terms of Service</span> and <span className="text-accent underline">Privacy Policy</span>.</label></div>
             <Button type="submit" className="w-full mt-2" isLoading={isLoading}>Create Free Workspace</Button>
           </form>

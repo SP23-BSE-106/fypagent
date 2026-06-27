@@ -115,13 +115,9 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <Input label="Email Address" type="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-muted tracking-wide uppercase">Password</label>
-                <Link href="/forgot-password" className="text-[11px] text-accent hover:underline font-semibold">Forgot Password?</Link>
-              </div>
-              <input type="password" placeholder="Enter password" value={password} onChange={(e) => setPassword(e.target.value)} required
-                className="flex w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted/60 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/30" />
+            <Input label="Password" type="password" placeholder="Enter password" value={password} onChange={(e) => setPassword(e.target.value)} required showPasswordToggle />
+            <div className="flex justify-end -mt-3">
+              <Link href="/forgot-password" className="text-[11px] text-accent hover:underline font-semibold">Forgot Password?</Link>
             </div>
             <Button type="submit" className="w-full mt-2" isLoading={isLoading}>Sign In to Workspace</Button>
           </form>

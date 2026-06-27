@@ -123,14 +123,14 @@ export default function SettingsPage() {
                   type="password"
                   placeholder="sk-proj-..."
                   value={openaiKey}
-                  onChange={(e) => setOpenaiKey(e.target.value)}
+                  onChange={(e) => setOpenaiKey(e.target.value)} showPasswordToggle
                 />
                 <Input
                   label="Anthropic Access Token"
                   type="password"
                   placeholder="sk-ant-..."
                   value={anthropicKey}
-                  onChange={(e) => setAnthropicKey(e.target.value)}
+                  onChange={(e) => setAnthropicKey(e.target.value)} showPasswordToggle
                 />
                 <Input
                   label="Local Ollama Host Link"

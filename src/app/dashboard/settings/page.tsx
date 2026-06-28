@@ -59,7 +59,7 @@ export default function SettingsPage() {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    fetch("/api/keys",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider:"gemini",key:geminiKey})}).then(r=>r.json()).catch(e=>console.error(e));setTimeout(() => {
+    setTimeout(() => {
       setIsSaving(false);
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 2500);

@@ -16,6 +16,8 @@ export default function SettingsPage() {
   const [user, setUser] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
   const [profileName, setProfileName] = React.useState("");
+  const [geminiKey, setGeminiKey] = React.useState("");
+  const [deepseekKey, setDeepseekKey] = React.useState("");
   const [profileEmail, setProfileEmail] = React.useState("");
   const [openaiKey, setOpenaiKey] = React.useState("");
   const [anthropicKey, setAnthropicKey] = React.useState("");
@@ -132,6 +134,21 @@ export default function SettingsPage() {
                   value={anthropicKey}
                   onChange={(e) => setAnthropicKey(e.target.value)} showPasswordToggle
                 />
+                <Input label="Google Gemini API Key"
+                  type="password"
+                  placeholder="AIza..."
+                  value={geminiKey}
+                  onChange={(e) => setGeminiKey(e.target.value)}
+                  showPasswordToggle
+                />
+                <Input
+                  label="DeepSeek API Key"
+                  type="password"
+                  placeholder="sk-..."
+                  value={deepseekKey}
+                  onChange={(e) => setDeepseekKey(e.target.value)}
+                  showPasswordToggle
+                />
                 <Input
                   label="Local Ollama Host Link"
                   type="text"
@@ -177,3 +194,4 @@ export default function SettingsPage() {
     </DashboardLayout>
   );
 }
+

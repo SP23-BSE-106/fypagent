@@ -1,9 +1,11 @@
-- [ ] Inspect and understand current landing implementation (src/app/page.tsx, ThreeBackground, PublicLayout, Navbar)
-- [ ] Replace hardcoded landing background/text colors in src/app/page.tsx with theme tokens (bg-background/bg-surface/text-foreground)
-- [ ] Add continuous storytelling “StoryRail” sticky element driven by scroll (framer-motion useScroll/useTransform) across the landing page sections
-- [ ] Reposition/extend ThreeBackground so the 3D feel persists beyond the hero right-side split (render as a full-landing background layer behind the story/chapters)
-- [ ] Add micro-interactions + scroll parallax for section backdrops (subtle)
-- [ ] Verify mobile + reduced-motion behavior and run the dev server for sanity check
+# TODO
 
-- [ ] Fix Supabase auth email confirmation redirect going to localhost in production by replacing `window.location.origin` usage with `NEXT_PUBLIC_APP_URL`.
+## DB connection limits ("fixed" strategy) + Supabase GoTrue client churn
+
+- [ ] Implement app-side mitigations to reduce Supabase GoTrue client churn in the browser (avoid multiple instances/storage key conflicts)
+- [ ] Add request rate limiting around auth-sensitive actions/endpoints to prevent traffic spikes from triggering DB connection-limit issues
+- [ ] Refactor login/signup UI to reuse a single Supabase client instance per browser context (module-level singleton)
+- [ ] Ensure server routes use server-side client with cookies (avoid unnecessary client creation per request where possible)
+- [ ] Lint + run dev server, validate login/signup and one execute call
+
 

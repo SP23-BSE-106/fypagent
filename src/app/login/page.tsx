@@ -1,4 +1,4 @@
-﻿'use client';
+﻿"use client";
 
 import * as React from "react";
 import Link from "next/link";
@@ -16,6 +16,14 @@ const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+function getRedirectToDashboard() {
+  // Use the actual runtime origin so email/OAuth confirmation always returns to the correct domain.
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/dashboard`;
+  }
+  return `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`;
+}
+
 export default function LoginPage() {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -32,8 +40,8 @@ export default function LoginPage() {
       const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-      
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+
       if (authError) {
         setError(authError.message);
         setIsLoading(false);
@@ -61,9 +69,9 @@ export default function LoginPage() {
       const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`;
+      const redirectTo = getRedirectToDashboard();
       const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: 'github',
+        provider: "github",
         options: { redirectTo },
       });
 
@@ -83,9 +91,9 @@ export default function LoginPage() {
       const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`;
+      const redirectTo = getRedirectToDashboard();
       const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider: "google",
         options: { redirectTo },
       });
 
@@ -115,10 +123,7 @@ export default function LoginPage() {
             <p className="text-xs text-muted">Log in to manage your agent orchestration workspace.</p>
           </div>
 
-          {error && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">{error}</div>
-          )}
-
+          {error && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">{error}</div>}
 
           <div className="grid grid-cols-2 gap-3">
             <Button variant="secondary" size="sm" type="button" className="w-full" onClick={handleGitHubLogin} disabled={isLoading}>
@@ -127,26 +132,34 @@ export default function LoginPage() {
             <Button variant="secondary" size="sm" type="button" className="w-full" onClick={handleGoogleLogin} disabled={isLoading}>
               <svg className="h-3.5 w-3.5 mr-2 fill-current" viewBox="0 0 24 24">
                 <path d="M12.24 10.285V13.4h6.887c-.648 2.41-2.519 4.13-5.136 4.13A5.71 5.71 0 0 1 8.2 11.83a5.71 5.71 0 0 1 5.79-5.7c1.55 0 2.97.58 4.07 1.54l2.427-2.427C18.9 3.86 16.59 3 14 3a8.81 8.81 0 0 0-8.9 8.83A8.81 8.81 0 0 0 14 20.66c4.61 0 8.9-3.3 8.9-8.91 0-.61-.07-1.15-.22-1.465H12.24z" />
-              </svg>Google
+              </svg>
+              Google
             </Button>
           </div>
 
           <div className="relative flex items-center justify-center">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/80" /></div>
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border/80" />
+            </div>
             <span className="relative bg-[#0B0F14] px-3.5 text-[10px] uppercase font-bold text-muted/80">Or continue with</span>
           </div>
-
 
           <form onSubmit={handleLogin} className="space-y-4">
             <Input label="Email Address" type="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
             <Input label="Password" type="password" placeholder="Enter password" value={password} onChange={(e) => setPassword(e.target.value)} required showPasswordToggle />
             <div className="flex justify-end -mt-3">
-              <Link href="/forgot-password" className="text-[11px] text-accent hover:underline font-semibold">Forgot Password?</Link>
+              <Link href="/forgot-password" className="text-[11px] text-accent hover:underline font-semibold">
+                Forgot Password?
+              </Link>
             </div>
-            <Button type="submit" className="w-full mt-2" isLoading={isLoading}>Sign In to Workspace</Button>
+            <Button type="submit" className="w-full mt-2" isLoading={isLoading}>
+              Sign In to Workspace
+            </Button>
           </form>
 
-          <p className="text-xs text-muted text-center">Do not have an account? <Link href="/signup" className="text-accent hover:underline font-semibold">Create one now</Link></p>
+          <p className="text-xs text-muted text-center">
+            Do not have an account? <Link href="/signup" className="text-accent hover:underline font-semibold">Create one now</Link>
+          </p>
         </div>
       </div>
 
@@ -155,13 +168,18 @@ export default function LoginPage() {
         <div className="absolute -top-40 -left-40 h-96 w-96 rounded-full bg-accent/5 blur-3xl" />
         <div className="absolute -bottom-40 -right-40 h-96 w-96 rounded-full bg-accent/5 blur-3xl" />
         <div className="max-w-md text-left space-y-6 relative z-10">
-          <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent-muted text-accent"><Cpu className="h-5 w-5" /></div>
+          <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent-muted text-accent">
+            <Cpu className="h-5 w-5" />
+          </div>
           <blockquote className="space-y-4">
             <p className="font-h2 text-foreground font-semibold leading-relaxed">AgentFlow transformed our workflow structures.</p>
-            <footer className="text-xs text-muted"><cite className="font-bold text-foreground not-italic">Marcus Vance</cite> - Lead AI Integration at Vercel</footer>
+            <footer className="text-xs text-muted">
+              <cite className="font-bold text-foreground not-italic">Marcus Vance</cite> - Lead AI Integration at Vercel
+            </footer>
           </blockquote>
         </div>
       </div>
     </div>
   );
 }
+

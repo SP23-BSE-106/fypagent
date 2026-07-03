@@ -382,16 +382,25 @@ export default function CreateAgentPage() {
                   <Card
                     key={i}
                     hoverEffect
-                    className="p-4 cursor-pointer border border-border/60 hover:border-accent/30"
+                    className="p-4 cursor-pointer border border-border/60 bg-surface/10 hover:bg-surface-light/10 hover:border-accent/30 transition-all"
                     onClick={() => setPrompt(t.prompt)}
                   >
-                    <h4 className="text-xs font-bold text-foreground flex items-center gap-2">
-                      <MessageSquare className="h-3.5 w-3.5 text-accent flex-shrink-0" />
-                      {t.name}
-                    </h4>
-                    <p className="text-[10px] text-muted mt-2 leading-relaxed line-clamp-3">
-                      {t.prompt}
-                    </p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-bold text-foreground flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-lg bg-accent-muted border border-accent/20 flex items-center justify-center text-accent">
+                            <MessageSquare className="h-4 w-4" />
+                          </div>
+                          <span className="truncate">{t.name}</span>
+                        </h4>
+                        <p className="text-[10px] text-muted mt-2 leading-relaxed line-clamp-3">
+                          {t.prompt}
+                        </p>
+                      </div>
+                      <span className="text-[9px] text-muted font-semibold uppercase tracking-wider whitespace-nowrap mt-1">
+                        {t.category}
+                      </span>
+                    </div>
                   </Card>
                 ))}
               </div>

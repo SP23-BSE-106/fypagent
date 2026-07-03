@@ -47,6 +47,14 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     fetchUser()
   }, []);
 
+  React.useEffect(() => {
+    if (userLoading) return;
+    if (user) return;
+    // Not logged in -> force login
+    window.location.href = '/login';
+  }, [user, userLoading]);
+
+
 
   const getUserInitials = () => {
     if (!user) return "??";
@@ -67,10 +75,28 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     return "Dashboard";
   };
 
+  if (userLoading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
+        <span className="text-sm text-muted">Loading…</span>
+      </div>
+    );
+  }
+
+  // Avoid rendering restricted UI briefly while redirecting.
+  if (!user) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
+        <span className="text-sm text-muted">Redirecting to login…</span>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
       <Sidebar />
       <div className="flex flex-col flex-1 h-full min-w-0 overflow-hidden">
+
         <header className="relative h-16 flex items-center justify-between px-6 border-b border-border/60 bg-surface/35 backdrop-blur-md flex-shrink-0">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_0%,rgba(91,231,196,0.22),transparent_55%)] opacity-60" />
           <div className="relative flex items-center justify-between flex-1">

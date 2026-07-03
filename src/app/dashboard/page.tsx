@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Cpu, GitBranch, Terminal, Activity, ArrowUpRight, Play, Settings, Plus, CheckCircle } from "lucide-react";
+import { Cpu, GitBranch, Terminal, Activity, ArrowUpRight, Play, Settings, Plus, CheckCircle, Sparkles, BookOpen, MessageSquare } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -171,6 +171,63 @@ export default function DashboardPage() {
 
         {/* Mid Grid: Recent Projects & Activities */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Website Templates (What you can build) */}
+          <div className="lg:col-span-3">
+            <div className="flex items-center justify-between gap-4">
+              <h3 className="font-h3 font-bold text-foreground">Website Templates</h3>
+              <Link href="/dashboard/templates" className="text-xs text-accent hover:underline font-semibold flex items-center">
+                Browse all <ArrowUpRight className="h-3 w-3 ml-0.5" />
+              </Link>
+            </div>
+            <p className="text-xs text-muted mt-1 max-w-2xl">
+              Pick a pre-built template that matches your website idea. Deploy, then tweak the workflow in Canvas.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-5">
+              {[
+                {
+                  title: "About & Value Prop",
+                  desc: "Turn your product notes into a clean homepage story—sections, messaging, and CTAs.",
+                  icon: "Sparkles",
+                },
+                {
+                  title: "FAQ & Knowledge Hub",
+                  desc: "Convert docs into searchable Q&A templates with citations-ready answers.",
+                  icon: "BookOpen",
+                },
+                {
+                  title: "Contact & Lead Capture",
+                  desc: "Auto-triage messages, classify intent, and draft reply templates that convert.",
+                  icon: "MessageSquare",
+                },
+              ].map((t) => (
+                <Link key={t.title} href="/dashboard/templates" className="block">
+                  <Card hoverEffect className="p-5 flex flex-col justify-between border border-border/80">
+                    <div className="space-y-3">
+                      <div className="h-10 w-10 rounded-lg bg-surface-light flex items-center justify-center text-accent border border-accent/20">
+                      {t.icon === "Sparkles" && <Sparkles className="h-5 w-5" />}
+                      {t.icon === "BookOpen" && <BookOpen className="h-5 w-5" />}
+                      {t.icon === "MessageSquare" && <MessageSquare className="h-5 w-5" />}
+                    </div>
+                    <CardTitle className="text-xs font-bold text-foreground">{t.title}</CardTitle>
+                    <CardDescription className="text-[10px] text-muted leading-relaxed">
+                      {t.desc}
+                    </CardDescription>
+                  </div>
+                  <div className="mt-4">
+                    <Button variant="secondary" size="sm" className="w-full">
+                      View Template
+                      <ArrowUpRight className="h-3 w-3 ml-1" />
+                    </Button>
+                  </div>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Recent Projects & Activities */}
+
           {/* Recent Projects List */}
           <div className="lg:col-span-2 space-y-4 text-left">
             <div className="flex items-center justify-between">

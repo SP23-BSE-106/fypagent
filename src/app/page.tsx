@@ -83,6 +83,7 @@ const NodeCard = ({
   active,
   style,
 }: {
+
   label: string;
   type: string;
   active?: boolean;
@@ -91,7 +92,7 @@ const NodeCard = ({
   <motion.div
     animate={{ y: [0, -6, 0] }}
     transition={{
-      duration: 3 + Math.random() * 2,
+      duration: 4,
       repeat: Infinity,
       ease: "easeInOut",
     }}
@@ -535,6 +536,81 @@ export default function LandingPage() {
                       <ChevronRight className="hidden md:block absolute top-10 -right-5 h-5 w-5 text-white/10" />
                     )}
                   </div>
+                </FadeUp>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* TEMPLATES */}
+        <section className="relative bg-background py-28 px-4 sm:px-6">
+          <div className="pointer-events-none absolute inset-0 opacity-[0.025] [background-image:linear-gradient(rgba(255,255,255,0.5)_1px,transparent_1px),linear-gradient(to_right,rgba(255,255,255,0.5)_1px,transparent_1px)] [background-size:60px_60px]" />
+
+          <div className="mx-auto max-w-6xl relative z-10">
+            <FadeUp className="text-center mb-16">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-accent mb-4">Templates</p>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white/95 tracking-tighter">
+                Start from proven agent designs
+              </h2>
+              <p className="text-white/40 mt-4 max-w-2xl mx-auto text-base sm:text-lg leading-relaxed">
+                Deploy a pre-built workflow in minutes—then customize the logic in Canvas.
+              </p>
+            </FadeUp>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[
+                {
+                  name: "Customer Support Escalator",
+                  category: "Customer Service",
+                  desc: "Semantic search over support docs + drafted responses + human escalation.",
+                },
+                {
+                  name: "SaaS Lead Enricher",
+                  category: "Marketing Automation",
+                  desc: "Enrich profiles on signup, score intent, and generate personalized onboarding.",
+                },
+                {
+                  name: "GitHub Reviewer & SecOps",
+                  category: "Developer Tools",
+                  desc: "Detect secrets + security issues and generate PR line comments.",
+                },
+                {
+                  name: "RAG Contract Q&A",
+                  category: "Legal & Compliance",
+                  desc: "Citations-ready answers with clause risk highlighting for review.",
+                },
+                {
+                  name: "Incident Postmortem Writer",
+                  category: "DevOps",
+                  desc: "Summarize timelines and generate blame-free action items.",
+                },
+                {
+                  name: "Product Feedback Triage",
+                  category: "Growth",
+                  desc: "Cluster feedback, label issues with LLMs, and draft acceptance criteria.",
+                },
+              ].map((t, idx) => (
+                <FadeUp key={t.name} delay={0.05 + idx * 0.05}>
+                  <BentoCard className="h-full p-6 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-4 mb-4">
+                        <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent border border-accent/20">
+                          <span className="text-[10px] font-black">{t.category.split(" ")[0].slice(0, 2).toUpperCase()}</span>
+                        </div>
+                        <span className="text-[9px] font-bold uppercase tracking-widest text-white/35">{t.category}</span>
+                      </div>
+                      <h3 className="text-lg font-bold text-white mb-2">{t.name}</h3>
+                      <p className="text-sm text-white/40 leading-relaxed">{t.desc}</p>
+                    </div>
+
+                    <div className="mt-6">
+                      <Link href="/dashboard/templates">
+                        <button className="inline-flex items-center gap-2 text-sm font-bold text-accent hover:underline underline-offset-4 transition-colors">
+                          View Marketplace <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </Link>
+                    </div>
+                  </BentoCard>
                 </FadeUp>
               ))}
             </div>

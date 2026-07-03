@@ -3,9 +3,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
 import type { WorkflowGraph } from '@/lib/mongo/workflow'
 
-const INFERENCE_URL =
-  process.env.INFERENCE_SERVER_URL || 'http://localhost:8000'
-
 // ─── Dev-mode mock ───────────────────────────────────────────────────────────
 // Used automatically when NEXT_PUBLIC_MOCK_LLM=true OR when the inference
 // server is unreachable in development (NODE_ENV !== 'production').
@@ -14,12 +11,12 @@ function buildMockWorkflow(prompt: string): WorkflowGraph {
   const words = prompt.toLowerCase()
 
   // Adapt the mock nodes based on keywords in the prompt
-  const hasRAG  = words.includes('pdf') || words.includes('doc') || words.includes('knowledge') || words.includes('search')
+  const hasRAG = words.includes('pdf') || words.includes('doc') || words.includes('knowledge') || words.includes('search')
   const hasSlack = words.includes('slack') || words.includes('notify') || words.includes('alert')
   const hasEmail = words.includes('email') || words.includes('mail')
-  const hasDB    = words.includes('database') || words.includes('crm') || words.includes('log')
-  const hasGit   = words.includes('github') || words.includes('pull request') || words.includes('pr')
-  const hasAPI   = words.includes('api') || words.includes('webhook') || words.includes('http')
+  const hasDB = words.includes('database') || words.includes('crm') || words.includes('log')
+  const hasGit = words.includes('github') || words.includes('pull request') || words.includes('pr')
+  const hasAPI = words.includes('api') || words.includes('webhook') || words.includes('http')
 
   const nodes = [
     {
@@ -29,8 +26,8 @@ function buildMockWorkflow(prompt: string): WorkflowGraph {
       description: hasGit
         ? 'Fires on pull_request events from GitHub via webhook.'
         : hasEmail
-        ? 'Listens for incoming email or HTTP webhook payloads.'
-        : 'Entry point that initiates the agent workflow.',
+          ? 'Listens for incoming email or HTTP webhook payloads.'
+          : 'Entry point that initiates the agent workflow.',
     },
     {
       id: 'node_2',
@@ -40,19 +37,19 @@ function buildMockWorkflow(prompt: string): WorkflowGraph {
     },
     ...(hasRAG
       ? [{
-          id: 'node_3',
-          name: 'Knowledge Base Retrieval (RAG)',
-          type: 'rag' as const,
-          description: 'Performs vector similarity search over indexed documents to fetch relevant context.',
-        }]
+        id: 'node_3',
+        name: 'Knowledge Base Retrieval (RAG)',
+        type: 'rag' as const,
+        description: 'Performs vector similarity search over indexed documents to fetch relevant context.',
+      }]
       : []),
     ...(hasAPI
       ? [{
-          id: 'node_4',
-          name: 'External API Call',
-          type: 'api' as const,
-          description: 'Calls a third-party REST API to enrich or act on the data.',
-        }]
+        id: 'node_4',
+        name: 'External API Call',
+        type: 'api' as const,
+        description: 'Calls a third-party REST API to enrich or act on the data.',
+      }]
       : []),
     {
       id: 'node_5',
@@ -67,24 +64,24 @@ function buildMockWorkflow(prompt: string): WorkflowGraph {
       description: hasGit
         ? 'Generates a detailed code-review comment using the retrieved diff context.'
         : hasEmail
-        ? 'Drafts a personalised reply using the retrieved document context.'
-        : 'Generates the final response or action payload.',
+          ? 'Drafts a personalised reply using the retrieved document context.'
+          : 'Generates the final response or action payload.',
     },
     ...(hasSlack
       ? [{
-          id: 'node_7',
-          name: 'Slack Notification',
-          type: 'api' as const,
-          description: 'Posts a formatted message to the configured Slack channel.',
-        }]
+        id: 'node_7',
+        name: 'Slack Notification',
+        type: 'api' as const,
+        description: 'Posts a formatted message to the configured Slack channel.',
+      }]
       : []),
     ...(hasDB
       ? [{
-          id: 'node_8',
-          name: 'Database / CRM Update',
-          type: 'api' as const,
-          description: 'Writes the result or ticket record to the connected database or CRM system.',
-        }]
+        id: 'node_8',
+        name: 'Database / CRM Update',
+        type: 'api' as const,
+        description: 'Writes the result or ticket record to the connected database or CRM system.',
+      }]
       : []),
     {
       id: 'node_out',
@@ -156,30 +153,67 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ workflow: buildMockWorkflow(prompt), _mock: true })
   }
 
-  // ── Forward to Nemotron inference server ─────────────────────────────────
+  // ── Forward to NVIDIA API (Kimi K2.6) ─────────────────────────────────
   let inferenceRes: Response
   try {
-    inferenceRes = await fetch(`${INFERENCE_URL}/generate`, {
+    const systemPrompt = `You are an AI workflow generator. The user will give you a prompt. You must generate a workflow graph consisting of nodes and edges to fulfill the user's intent.
+You MUST output ONLY valid JSON in the following format:
+{
+  "workflow": {
+    "name": "Generated Agent Name",
+    "description": "Brief description",
+    "nodes": [
+      {
+        "id": "node_1",
+        "name": "Node Name",
+        "type": "trigger|llm|rag|api|condition|output",
+        "description": "What this node does"
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge_1",
+        "source": "node_1",
+        "target": "node_2"
+      }
+    ]
+  }
+}
+Do not wrap your response in markdown blocks like \`\`\`json. Just output the raw JSON object.`;
+
+    inferenceRes = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, max_new_tokens: 1024 }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer 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',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        model: "moonshotai/kimi-k2.6",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 2048,
+        temperature: 0.7,
+        top_p: 1.0,
+        stream: false
+      }),
       signal: AbortSignal.timeout(120_000),
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
 
-    // In development, fall back to mock automatically so the UI remains usable
     if (process.env.NODE_ENV !== 'production') {
-      console.warn('[generate] Inference server unreachable — using dev mock. Start inference_server.py for real generation.')
+      console.warn('[generate] Inference server unreachable — using dev mock.', msg)
       await new Promise((r) => setTimeout(r, 2500))
       return NextResponse.json({ workflow: buildMockWorkflow(prompt), _mock: true })
     }
 
     return NextResponse.json(
       {
-        error: 'Cannot reach the Nemotron inference server.',
+        error: 'Cannot reach the inference API.',
         detail: msg,
-        hint: 'Make sure inference_server.py is running: python inference_server.py',
       },
       { status: 503 },
     )
@@ -187,14 +221,30 @@ export async function POST(request: NextRequest) {
 
   if (!inferenceRes.ok) {
     const detail = await inferenceRes.text().catch(() => '')
+    console.error('API call failed', inferenceRes.status, detail)
+    
+    // We remove the fallback to mock here so you can SEE the API error if it fails!
     return NextResponse.json(
-      { error: 'Inference server error', detail },
+      { error: 'Inference API error', detail },
       { status: inferenceRes.status },
     )
   }
 
   const data = await inferenceRes.json()
-  const workflow = data?.workflow
+  
+  let workflow = null;
+  try {
+    const content = data.choices?.[0]?.message?.content || "";
+    const cleanContent = content.replace(/^\s*```json/mi, '').replace(/```\s*$/m, '').trim();
+    const parsed = JSON.parse(cleanContent);
+    workflow = parsed.workflow || parsed;
+  } catch (e) {
+    console.error("Failed to parse API response", e, data.choices?.[0]?.message?.content);
+    return NextResponse.json(
+      { error: 'Failed to parse workflow from inference response' },
+      { status: 502 },
+    )
+  }
 
   if (!workflow || typeof workflow !== 'object') {
     return NextResponse.json(

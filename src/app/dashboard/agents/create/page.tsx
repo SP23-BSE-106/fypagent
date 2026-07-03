@@ -36,26 +36,32 @@ const PROVIDERS: LLMProvider[] = [
 ];
 
 const QUICK_TEMPLATES = [
-  {
-    name: "Customer Support Orchestrator",
-    prompt:
-      "Create a customer support agent that reads uploaded PDFs, classifies customer intent, searches the knowledge base, and drafts personalized email responses based on sentiment.",
-  },
-  {
-    name: "SaaS Lead Enrichment",
-    prompt:
-      "Build an automated agent flow that triggers when a user registers, enriches their profile via LinkedIn and Clearbit API lookups, scores them, and posts a digest to Slack.",
-  },
-  {
-    name: "PR Security Guard",
-    prompt:
-      "Design a GitHub workflow agent that reviews pull request diffs, checks for API credential leaks and SQL injection patterns, and posts inline security review comments.",
-  },
-  {
-    name: "Invoice Processing Bot",
-    prompt:
-      "Create an agent that ingests incoming invoice PDFs via email, extracts fields using OCR, validates against purchase orders, and updates the accounting system.",
-  },
+  { category: "Support", name: "Customer Support Orchestrator", prompt: "Create a customer support agent that reads uploaded PDFs, classifies customer intent, searches the knowledge base, and drafts personalized email responses based on sentiment." },
+  { category: "Support", name: "Refund Processor", prompt: "Build an agent that receives refund requests via webhook, verifies order status in Stripe API, determines eligibility based on policy chunks in a vector DB, and issues the refund." },
+  { category: "Support", name: "Multi-language Support Router", prompt: "An agent that detects the language of an incoming ticket, translates it to English, classifies urgency, and assigns it to the correct department queue." },
+  
+  { category: "Sales", name: "SaaS Lead Enrichment", prompt: "Build an automated agent flow that triggers when a user registers, enriches their profile via LinkedIn and Clearbit API lookups, scores them, and posts a digest to Slack." },
+  { category: "Sales", name: "Cold Email Drafter", prompt: "Create an agent that takes a company domain, crawls their website for key value props, and drafts 3 variations of highly personalized cold outreach emails." },
+  { category: "Sales", name: "CRM Data Cleaner", prompt: "Design a daily scheduled agent that fetches recent Salesforce contacts, fixes casing/formatting, identifies duplicates using an LLM, and updates the records via API." },
+  
+  { category: "DevOps", name: "PR Security Guard", prompt: "Design a GitHub workflow agent that reviews pull request diffs, checks for API credential leaks and SQL injection patterns, and posts inline security review comments." },
+  { category: "DevOps", name: "Incident Triage Bot", prompt: "An agent triggered by PagerDuty alerts that pulls recent Datadog error logs, uses an LLM to summarize the likely root cause, and opens a Jira ticket." },
+  { category: "DevOps", name: "Release Notes Generator", prompt: "Create an agent that runs on a new tag release, fetches all merged PRs since the last tag, categorizes them into features/fixes, and drafts the GitHub release notes." },
+  
+  { category: "Data", name: "Invoice Processing Bot", prompt: "Create an agent that ingests incoming invoice PDFs via email, extracts fields using OCR, validates against purchase orders, and updates the accounting system." },
+  { category: "Data", name: "Competitor Price Tracker", prompt: "Build an agent that scrapes competitor pricing pages daily, extracts the pricing tiers using an LLM, compares them against our database, and alerts the team of changes." },
+  { category: "Data", name: "Sentiment Analysis Pipeline", prompt: "An agent that triggers on new Trustpilot reviews, performs sentiment analysis, categorizes the feedback into product areas, and pushes the data to a Google Sheet." },
+
+  { category: "HR", name: "Resume Screener", prompt: "Design an agent that triggers when a PDF resume is uploaded, parses the text, scores the candidate against the job description using an LLM, and emails the recruiter a summary." },
+  { category: "HR", name: "Employee Onboarding Assistant", prompt: "Create a Slack bot agent that welcomes new hires, answers their HR policy questions using a RAG database of the employee handbook, and triggers IT provisioning APIs." },
+  { category: "HR", name: "Interview Question Generator", prompt: "An agent that takes a job role and candidate's tech stack as input, searches a database of technical questions, and generates a tailored 45-minute technical interview script." },
+
+  { category: "Marketing", name: "Blog to Social Media Converter", prompt: "Build an agent that takes a blog post URL, extracts the content, and generates a Twitter thread, a LinkedIn post, and a Facebook summary." },
+  { category: "Marketing", name: "SEO Content Brief Generator", prompt: "An agent that accepts a target keyword, fetches the top 10 Google results, analyzes their headings, and generates a comprehensive SEO content brief with recommended word count." },
+  { category: "Marketing", name: "Ad Copy Variations Bot", prompt: "Create an agent that takes a product description and target audience persona, and generates 5 variations of Facebook Ad copy focusing on different emotional triggers." },
+
+  { category: "Security", name: "Phishing Email Analyzer", prompt: "Design an agent that ingests forwarded suspicious emails, analyzes the headers and links using VirusTotal API, and responds to the employee with a safety verdict." },
+  { category: "Security", name: "Compliance Auditor", prompt: "An agent that reads cloud infrastructure configuration JSON files, checks them against SOC2 compliance rules using an LLM, and generates an audit report." }
 ];
 
 // ─── Node type → icon / colour mapping ──────────────────────────────────────
@@ -290,7 +296,7 @@ export default function CreateAgentPage() {
               Create Agent
             </h2>
             <p className="text-xs text-muted max-w-xl">
-              Describe your agent in plain English. Our fine-tuned Nemotron Nano model will
+              Describe your agent in plain English. The Kimi AI model will
               compile a structured workflow graph — then add your LLM key and save.
             </p>
           </div>
@@ -321,7 +327,7 @@ export default function CreateAgentPage() {
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <span className="text-[10px] text-muted flex items-center gap-1.5">
                       <Sparkles className="h-3.5 w-3.5 text-accent animate-pulse" />
-                      Powered by Nemotron Nano (local model — no external API needed)
+                      Powered by Kimi AI API
                     </span>
                     <Button type="submit" isLoading={generating} disabled={!prompt.trim() || generating}>
                       <Send className="h-3.5 w-3.5 mr-1.5" />
@@ -337,7 +343,7 @@ export default function CreateAgentPage() {
                   <div className="flex items-center gap-3 mb-4">
                     <Loader2 className="h-4 w-4 text-accent animate-spin" />
                     <span className="text-xs font-bold text-foreground">
-                      Nemotron is compiling your workflow…
+                      Kimi is compiling your workflow…
                     </span>
                   </div>
                   <div className="space-y-2 font-mono">
@@ -396,7 +402,7 @@ export default function CreateAgentPage() {
                 </p>
                 <ul className="space-y-1.5 text-[10px] text-muted">
                   <li className="flex gap-2"><span className="text-accent font-bold">1.</span> You describe the agent goal</li>
-                  <li className="flex gap-2"><span className="text-accent font-bold">2.</span> Nemotron Nano generates the workflow graph</li>
+                  <li className="flex gap-2"><span className="text-accent font-bold">2.</span> Kimi AI generates the workflow graph</li>
                   <li className="flex gap-2"><span className="text-accent font-bold">3.</span> Add your LLM provider key (for runtime)</li>
                   <li className="flex gap-2"><span className="text-accent font-bold">4.</span> Save and open in Canvas</li>
                 </ul>
@@ -432,7 +438,7 @@ export default function CreateAgentPage() {
                     <div>
                       <p className="text-xs font-bold text-yellow-500">Using Dev-Mode Mock Workflow</p>
                       <p className="text-[10px] text-yellow-500/80 mt-0.5 leading-relaxed">
-                        The Nemotron inference server was unreachable. This is a smart mock generated based on your prompt keywords.
+                        The API server was unreachable. This is a smart mock generated based on your prompt keywords.
                         To generate real workflows, ensure <code className="bg-yellow-500/20 px-1 py-0.5 rounded text-yellow-600">inference_server.py</code> is running.
                       </p>
                     </div>
@@ -614,7 +620,7 @@ export default function CreateAgentPage() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 w-full">
-                  <Link href="/workflow-builder" className="flex-1">
+                  <Link href={`/workflow-builder?agentId=${savedAgent._id}`} className="flex-1">
                     <Button className="w-full">
                       <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                       Open in Canvas

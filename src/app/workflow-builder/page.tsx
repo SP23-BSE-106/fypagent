@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -79,57 +80,101 @@ const nodeTypes = {
 // Initial nodes on canvas
 const initialNodes: Node[] = [
   {
-    id: "1",
+    id: "node_1",
     type: "customNode",
     position: { x: 250, y: 50 },
     data: {
-      label: "Webhook Ingestion",
+      label: "GitHub Webhook Trigger",
       type: "Input",
-      description: "Listens on URL '/v1/triggers/slack-alert'",
+      description: "Fires on pull_request events from GitHub via webhook.",
       icon: Zap,
     },
   },
   {
-    id: "2",
+    id: "node_2",
     type: "customNode",
     position: { x: 250, y: 190 },
     data: {
-      label: "Model Router",
+      label: "Intent Classifier (LLM)",
       type: "LLM Node",
-      description: "Determines urgency of user query using GPT-4o.",
+      description: "Analyses the incoming payload and classifies the user intent into categories.",
       icon: Cpu,
     },
   },
   {
-    id: "3",
+    id: "node_3",
     type: "customNode",
-    position: { x: 100, y: 330 },
+    position: { x: 250, y: 330 },
     data: {
-      label: "Knowledge Retrieval",
+      label: "Knowledge Base Retrieval (RAG)",
       type: "RAG Node",
-      description: "Searches manual PDF directory chunks.",
+      description: "Performs vector similarity search over indexed documents to fetch relevant context.",
       icon: Database,
     },
   },
   {
-    id: "4",
+    id: "node_4",
     type: "customNode",
-    position: { x: 400, y: 330 },
+    position: { x: 250, y: 470 },
     data: {
-      label: "CRM API Sync",
+      label: "External API Call",
       type: "API Node",
-      description: "Appends lead records data into Salesforce.",
+      description: "Calls a third-party REST API to enrich or act on the data.",
       icon: GitBranch,
     },
   },
   {
-    id: "5",
+    id: "node_5",
     type: "customNode",
-    position: { x: 250, y: 470 },
+    position: { x: 250, y: 610 },
     data: {
-      label: "Compiled Output",
+      label: "Decision Gate",
+      type: "Condition",
+      description: "Routes the flow based on the classified intent or API response.",
+      icon: GitBranch,
+    },
+  },
+  {
+    id: "node_6",
+    type: "customNode",
+    position: { x: 250, y: 750 },
+    data: {
+      label: "Response Generator (LLM)",
+      type: "LLM Node",
+      description: "Generates a detailed code-review comment using the retrieved diff context.",
+      icon: Cpu,
+    },
+  },
+  {
+    id: "node_7",
+    type: "customNode",
+    position: { x: 250, y: 890 },
+    data: {
+      label: "Slack Notification",
+      type: "API Node",
+      description: "Posts a formatted message to the configured Slack channel.",
+      icon: MessageSquare,
+    },
+  },
+  {
+    id: "node_8",
+    type: "customNode",
+    position: { x: 250, y: 1030 },
+    data: {
+      label: "Database / CRM Update",
+      type: "API Node",
+      description: "Writes the result or ticket record to the connected database or CRM system.",
+      icon: Database,
+    },
+  },
+  {
+    id: "node_out",
+    type: "customNode",
+    position: { x: 250, y: 1170 },
+    data: {
+      label: "Output",
       type: "Output",
-      description: "Return json payload data directly.",
+      description: "Delivers the final response to the end channel (email, webhook, dashboard).",
       icon: Terminal,
     },
   },
@@ -137,14 +182,20 @@ const initialNodes: Node[] = [
 
 // Initial edges connecting them
 const initialEdges: Edge[] = [
-  { id: "e1-2", source: "1", target: "2" },
-  { id: "e2-3", source: "2", target: "3" },
-  { id: "e2-4", source: "2", target: "4" },
-  { id: "e3-5", source: "3", target: "5" },
-  { id: "e4-5", source: "4", target: "5" },
+  { id: "edge_1", source: "node_1", target: "node_2" },
+  { id: "edge_2", source: "node_2", target: "node_3" },
+  { id: "edge_3", source: "node_3", target: "node_4" },
+  { id: "edge_4", source: "node_4", target: "node_5" },
+  { id: "edge_5", source: "node_5", target: "node_6" },
+  { id: "edge_6", source: "node_6", target: "node_7" },
+  { id: "edge_7", source: "node_7", target: "node_8" },
+  { id: "edge_8", source: "node_8", target: "node_out" },
 ];
 
-export default function WorkflowBuilderPage() {
+function WorkflowBuilderInner() {
+  const searchParams = useSearchParams();
+  const agentId = searchParams?.get("agentId");
+
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = React.useState<Node | null>(null);
@@ -153,6 +204,53 @@ export default function WorkflowBuilderPage() {
     "[SYSTEM] Workflow engine initialized.",
     "[SYSTEM] Waiting for trigger event or manual run execution...",
   ]);
+
+  React.useEffect(() => {
+    if (!agentId) return;
+    
+    setLogs(prev => [...prev, `[SYSTEM] Fetching agent workflow...`]);
+    fetch(`/api/agents/${agentId}`)
+      .then(res => res.json())
+      .then(agent => {
+        if (agent && agent.workflow) {
+          const typeIcons: Record<string, any> = {
+            trigger: { type: "Input", icon: Zap },
+            llm: { type: "LLM Node", icon: Cpu },
+            rag: { type: "RAG Node", icon: Database },
+            api: { type: "API Node", icon: GitBranch },
+            condition: { type: "Condition", icon: GitBranch },
+            output: { type: "Output", icon: Terminal },
+          };
+
+          const mappedNodes: Node[] = (agent.workflow.nodes || []).map((n: any, i: number) => {
+            const mapInfo = typeIcons[n.type] || { type: "LLM Node", icon: Cpu };
+            return {
+              id: n.id,
+              type: "customNode",
+              position: { x: 250, y: 50 + (i * 140) },
+              data: {
+                label: n.name,
+                type: mapInfo.type,
+                description: n.description,
+                icon: mapInfo.icon,
+              }
+            };
+          });
+
+          setNodes(mappedNodes);
+          setEdges((agent.workflow.edges || []).map((e: any) => ({
+            id: e.id,
+            source: e.source,
+            target: e.target
+          })));
+          setLogs(prev => [...prev, `[SYSTEM] Loaded workflow graph from agent: ${agent.name}`]);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        setLogs(prev => [...prev, `[SYSTEM] Failed to load agent workflow.`]);
+      });
+  }, [agentId, setNodes, setEdges]);
 
   // Handle flow connect
   const onConnect = React.useCallback(
@@ -397,5 +495,13 @@ export default function WorkflowBuilderPage() {
         <Background color="#1E293B" gap={16} />
       </ReactFlow>
     </BuilderLayout>
+  );
+}
+
+export default function WorkflowBuilderPage() {
+  return (
+    <React.Suspense fallback={<div className="h-screen w-screen flex items-center justify-center bg-background text-muted text-sm">Loading workflow engine...</div>}>
+      <WorkflowBuilderInner />
+    </React.Suspense>
   );
 }

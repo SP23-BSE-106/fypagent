@@ -38,7 +38,7 @@ function EmptyState() {
       </div>
       <h3 className="font-bold text-foreground text-sm">No agents yet</h3>
       <p className="text-[11px] text-muted mt-1 max-w-xs">
-        Create your first AI agent using our Nemotron Nano workflow generator.
+        Create your first AI agent using our Kimi AI workflow generator.
       </p>
       <Link href="/dashboard/agents/create" className="mt-5">
         <Button size="sm">

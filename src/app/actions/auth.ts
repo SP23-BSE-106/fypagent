@@ -66,20 +66,23 @@ export async function signup(email: string, password: string, fullName: string) 
 
 
 export async function signout() {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
-  revalidatePath('/', 'layout');
-  redirect('/login');
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+  revalidatePath('/', 'layout')
+  redirect('/login')
 }
+
 
 export async function getSession() {
-  const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  return session;
+  const supabase = await createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  return session
 }
 
+
 export async function getUser() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  return user
 }
+

@@ -1,9 +1,9 @@
-﻿'use client';
+'use client';
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { LayoutDashboard, Cpu, GitBranch, Database, Terminal, CloudLightning, BarChart3, Sliders, ChevronLeft, ChevronRight, BookOpen, Boxes, LogOut, CreditCard } from "lucide-react";
+import { LayoutDashboard, Cpu, GitBranch, Database, Terminal, CloudLightning, BarChart3, Sliders, ChevronLeft, ChevronRight, BookOpen, Boxes, LogOut, CreditCard, ListChecks, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps { className?: string; }
@@ -38,7 +38,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   }
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Create Agent", href: "/dashboard/agents/create", icon: Cpu },
+    { name: "My Agents", href: "/dashboard/agents", icon: ListChecks },
+    { name: "Create Agent", href: "/dashboard/agents/create", icon: Plus },
     { name: "Workflow Builder", href: "/workflow-builder", icon: GitBranch },
     { name: "Knowledge Base", href: "/dashboard/rag", icon: Database },
     { name: "Testing Sandbox", href: "/testing-sandbox", icon: Terminal },

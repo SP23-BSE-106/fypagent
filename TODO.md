@@ -1,11 +1,12 @@
 # TODO
 
-## DB connection limits ("fixed" strategy) + Supabase GoTrue client churn
+## Completed
+- (none yet)
 
-- [ ] Implement app-side mitigations to reduce Supabase GoTrue client churn in the browser (avoid multiple instances/storage key conflicts)
-- [ ] Add request rate limiting around auth-sensitive actions/endpoints to prevent traffic spikes from triggering DB connection-limit issues
-- [ ] Refactor login/signup UI to reuse a single Supabase client instance per browser context (module-level singleton)
-- [ ] Ensure server routes use server-side client with cookies (avoid unnecessary client creation per request where possible)
-- [ ] Lint + run dev server, validate login/signup and one execute call
+## Next
+- [x] Update `src/app/dashboard/templates/page.tsx` to include 20 diverse templates
+- [x] Add filtering UI: category dropdown, verified-only toggle, minimum rating filter
+- [x] Combine filters with existing search input
+- [ ] Run `npm run lint` and `npm run build`
 
 

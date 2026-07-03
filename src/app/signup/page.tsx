@@ -34,8 +34,49 @@ export default function SignupPage() {
       router.push("/dashboard");
     } catch (err: unknown) { setError(err instanceof Error ? err.message : "An error occurred"); setIsLoading(false); }
   };
-  const handleGitHubSignup = async () => { setIsLoading(true); try { const { createClient } = await import("@supabase/supabase-js"); const supabase = createClient(supabaseUrl, supabaseKey); const { error: authError } = await supabase.auth.signInWithOAuth({ provider: 'github', options: { redirectTo: `${window.location.origin}/dashboard` } }); if (authError) { setError(authError.message); setIsLoading(false); } } catch (err: unknown) { setError(err instanceof Error ? err.message : "An error occurred"); setIsLoading(false); } };
-  const handleGoogleSignup = async () => { setIsLoading(true); try { const { createClient } = await import("@supabase/supabase-js"); const supabase = createClient(supabaseUrl, supabaseKey); const { error: authError } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/dashboard` } }); if (authError) { setError(authError.message); setIsLoading(false); } } catch (err: unknown) { setError(err instanceof Error ? err.message : "An error occurred"); setIsLoading(false); } };
+  const handleGitHubSignup = async () => {
+    setIsLoading(true);
+    try {
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`;
+      const { error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: { redirectTo },
+      });
+
+      if (authError) {
+        setError(authError.message);
+        setIsLoading(false);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignup = async () => {
+    setIsLoading(true);
+    try {
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`;
+      const { error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo },
+      });
+
+      if (authError) {
+        setError(authError.message);
+        setIsLoading(false);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+      setIsLoading(false);
+    }
+  };
   return (
     <div className="flex h-screen w-screen bg-[#0B0F14] text-foreground select-none overflow-hidden">
       <div className="flex-1 flex flex-col justify-center px-8 sm:px-16 md:px-24 bg-[#0B0F14] z-10 border-r border-border/40">

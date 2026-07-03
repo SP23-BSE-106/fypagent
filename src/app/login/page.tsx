@@ -60,9 +60,21 @@ export default function LoginPage() {
     try {
       const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(supabaseUrl, supabaseKey);
-      const { error: authError } = await supabase.auth.signInWithOAuth({ provider: 'github', options: { redirectTo: `${window.location.origin}/dashboard` } });
-      if (authError) { setError(authError.message); setIsLoading(false); }
-    } catch (err: unknown) { setError(err instanceof Error ? err.message : "An error occurred"); setIsLoading(false); }
+
+      const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`;
+      const { error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: { redirectTo },
+      });
+
+      if (authError) {
+        setError(authError.message);
+        setIsLoading(false);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+      setIsLoading(false);
+    }
   };
 
   const handleGoogleLogin = async () => {
@@ -70,9 +82,21 @@ export default function LoginPage() {
     try {
       const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(supabaseUrl, supabaseKey);
-      const { error: authError } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/dashboard` } });
-      if (authError) { setError(authError.message); setIsLoading(false); }
-    } catch (err: unknown) { setError(err instanceof Error ? err.message : "An error occurred"); setIsLoading(false); }
+
+      const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`;
+      const { error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo },
+      });
+
+      if (authError) {
+        setError(authError.message);
+        setIsLoading(false);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+      setIsLoading(false);
+    }
   };
 
   return (

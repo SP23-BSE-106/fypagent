@@ -4,3 +4,6 @@
 - [ ] Reposition/extend ThreeBackground so the 3D feel persists beyond the hero right-side split (render as a full-landing background layer behind the story/chapters)
 - [ ] Add micro-interactions + scroll parallax for section backdrops (subtle)
 - [ ] Verify mobile + reduced-motion behavior and run the dev server for sanity check
+
+- [ ] Fix Supabase auth email confirmation redirect going to localhost in production by replacing `window.location.origin` usage with `NEXT_PUBLIC_APP_URL`.
+

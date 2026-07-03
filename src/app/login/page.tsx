@@ -7,22 +7,13 @@ import { Cpu } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+
 
 const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" className={props.className} {...props}>
     <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
   </svg>
 );
-
-function getRedirectToDashboard() {
-  // Use the actual runtime origin so email/OAuth confirmation always returns to the correct domain.
-  if (typeof window !== "undefined") {
-    return `${window.location.origin}/dashboard`;
-  }
-  return `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`;
-}
 
 export default function LoginPage() {
   const [email, setEmail] = React.useState("");
@@ -37,74 +28,31 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
 
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; success?: boolean }
 
-      if (authError) {
-        setError(authError.message);
-        setIsLoading(false);
-        return;
+      if (!res.ok) {
+        setError(data.error || 'Login failed')
+        setIsLoading(false)
+        return
       }
 
-      // Verify session is set before redirecting
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setError("Login failed. Please try again.");
-        setIsLoading(false);
-        return;
-      }
-
-      router.push("/dashboard");
+      router.push('/dashboard')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-      setIsLoading(false);
+      setError(err instanceof Error ? err.message : 'An error occurred')
+      setIsLoading(false)
     }
   };
 
-  const handleGitHubLogin = async () => {
+  const handleOAuthLogin = () => {
     setIsLoading(true);
-    try {
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(supabaseUrl, supabaseKey);
-
-      const redirectTo = getRedirectToDashboard();
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: "github",
-        options: { redirectTo },
-      });
-
-      if (authError) {
-        setError(authError.message);
-        setIsLoading(false);
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setIsLoading(true);
-    try {
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(supabaseUrl, supabaseKey);
-
-      const redirectTo = getRedirectToDashboard();
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo },
-      });
-
-      if (authError) {
-        setError(authError.message);
-        setIsLoading(false);
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-      setIsLoading(false);
-    }
+    setError('OAuth login is not available. Use email/password authentication.');
+    setIsLoading(false);
   };
 
   return (
@@ -126,10 +74,10 @@ export default function LoginPage() {
           {error && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">{error}</div>}
 
           <div className="grid grid-cols-2 gap-3">
-            <Button variant="secondary" size="sm" type="button" className="w-full" onClick={handleGitHubLogin} disabled={isLoading}>
+            <Button variant="secondary" size="sm" type="button" className="w-full" onClick={handleOAuthLogin} disabled={isLoading}>
               <GithubIcon className="h-4 w-4 mr-2" />GitHub
             </Button>
-            <Button variant="secondary" size="sm" type="button" className="w-full" onClick={handleGoogleLogin} disabled={isLoading}>
+            <Button variant="secondary" size="sm" type="button" className="w-full" onClick={handleOAuthLogin} disabled={isLoading}>
               <svg className="h-3.5 w-3.5 mr-2 fill-current" viewBox="0 0 24 24">
                 <path d="M12.24 10.285V13.4h6.887c-.648 2.41-2.519 4.13-5.136 4.13A5.71 5.71 0 0 1 8.2 11.83a5.71 5.71 0 0 1 5.79-5.7c1.55 0 2.97.58 4.07 1.54l2.427-2.427C18.9 3.86 16.59 3 14 3a8.81 8.81 0 0 0-8.9 8.83A8.81 8.81 0 0 0 14 20.66c4.61 0 8.9-3.3 8.9-8.91 0-.61-.07-1.15-.22-1.465H12.24z" />
               </svg>

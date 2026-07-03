@@ -5,8 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { LayoutDashboard, Cpu, GitBranch, Database, Terminal, CloudLightning, BarChart3, Sliders, ChevronLeft, ChevronRight, BookOpen, Boxes, LogOut, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+
 interface SidebarProps { className?: string; }
 export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
@@ -17,23 +16,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   React.useEffect(() => {
     const fetchUser = async () => {
       try {
-        const { createClient } = await import("@supabase/supabase-js");
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
-      } catch { console.error("Error fetching user"); }
-      finally { setLoading(false); }
-    };
-    fetchUser();
-  }, []);
+        const res = await fetch('/api/auth/me')
+        const data = (await res.json().catch(() => ({}))) as { user?: any }
+        setUser(data.user ?? null)
+      } catch {
+        setUser(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchUser()
+  }, [])
+
   const handleSignOut = async () => {
     try {
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      await supabase.auth.signOut();
-      router.push("/login");
-    } catch { console.error("Error signing out"); }
-  };
+      await fetch('/api/auth/logout', { method: 'POST' })
+      router.push('/login')
+    } catch {
+      router.push('/login')
+    }
+  }
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Create Agent", href: "/dashboard/agents/create", icon: Cpu },
@@ -49,16 +51,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   ];
   const getUserInitials = () => {
     if (!user) return "??";
-    const u = user as { user_metadata?: { full_name?: string }; email?: string };
-    if (u.user_metadata?.full_name) return u.user_metadata.full_name.split(" ").map(p => p[0]).join("").toUpperCase().slice(0, 2);
-    if (u.email) return u.email.slice(0, 2).toUpperCase();
-    return "??";
+    const u = user as { fullName?: string; email?: string };
+    const name = u.fullName || u.email || "";
+    if (!name) return "??";
+    return name.split(" ").map((p) => p[0]).join("").toUpperCase().slice(0, 2);
   };
   const getUserDisplayName = () => {
     if (!user) return "Loading...";
-    const u = user as { user_metadata?: { full_name?: string }; email?: string };
-    if (u.user_metadata?.full_name) return u.user_metadata.full_name;
-    return u.email?.split("@")[0] || "User";
+    const u = user as { fullName?: string; email?: string };
+    return u.fullName || u.email?.split("@")[0] || "User";
   };
   return (
     <motion.aside animate={{ width: isCollapsed ? 70 : 260 }} transition={{ duration: 0.25, ease: "easeInOut" }} className={cn("relative flex flex-col h-screen bg-surface border-r border-border/80 flex-shrink-0 text-foreground", className)}>

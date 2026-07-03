@@ -8,9 +8,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
-
 export default function SettingsPage() {
   const router = useRouter();
   const [user, setUser] = React.useState<any>(null);
@@ -26,18 +23,18 @@ export default function SettingsPage() {
   React.useEffect(() => {
     const fetchUser = async () => {
       try {
-        const { createClient } = await import("@supabase/supabase-js");
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setUser(user);
-          setProfileName(user.user_metadata?.full_name || "");
-          setProfileEmail(user.email || "");
+        const res = await fetch('/api/auth/me');
+        const data = (await res.json().catch(() => ({}))) as { user?: { fullName?: string; email?: string } };
+        if (data.user) {
+          setUser(data.user);
+          setProfileName(data.user.fullName || "");
+          setProfileEmail(data.user.email || "");
         } else {
           router.push("/login");
         }
       } catch (err) {
         console.error("Error fetching user:", err);
+        router.push('/login');
       } finally {
         setLoading(false);
       }

@@ -1,88 +1,100 @@
 ﻿'use server'
 
-import { revalidatePath } from 'next/cache'
+'use server'
+
 import { redirect } from 'next/navigation'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { revalidatePath } from 'next/cache'
+import bcrypt from 'bcryptjs'
 
+import { getDb } from '@/lib/mongo/mongo'
 import { rateLimit } from '@/lib/rateLimit'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-
-async function createClient() {
-  const cookieStore = await cookies()
-  return createServerClient(supabaseUrl, supabaseKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll()
-      },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-        } catch {
-          // Called from Server Component - ignored if middleware refreshes sessions
-        }
-      },
-    },
-  })
-}
-
+import { clearSessionToken, getSessionTokenFromCookies, setSessionToken, signJwt, verifyJwt } from '@/lib/auth/jwt'
 
 export async function login(email: string, password: string) {
   const rl = rateLimit(`auth:login:${email}`, { windowMs: 60_000, max: 5 })
-  if (!rl.ok) {
-    return { error: `Too many requests. Retry after ${rl.retryAfterMs}ms` }
-  }
+  if (!rl.ok) return { error: `Too many requests. Retry after ${rl.retryAfterMs}ms` }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) return { error: error.message }
+  const db = await getDb()
+  const users = db.collection('users')
+
+  const user = await users.findOne<{ _id: string; email: string; passwordHash: string; fullName?: string }>({
+    email: email.trim().toLowerCase(),
+  })
+
+  if (!user) return { error: 'Invalid credentials' }
+
+  const ok = await bcrypt.compare(password, user.passwordHash)
+  if (!ok) return { error: 'Invalid credentials' }
+
+  const jwt = signJwt(
+    { sub: String(user._id), email: user.email, fullName: user.fullName },
+    60 * 60 * 24 * 7,
+  )
+  await setSessionToken(jwt)
+
   revalidatePath('/', 'layout')
   return { success: true }
 }
 
-
-
 export async function signup(email: string, password: string, fullName: string) {
   const rl = rateLimit(`auth:signup:${email}`, { windowMs: 60_000, max: 5 })
-  if (!rl.ok) {
-    return { error: `Too many requests. Retry after ${rl.retryAfterMs}ms` }
-  }
+  if (!rl.ok) return { error: `Too many requests. Retry after ${rl.retryAfterMs}ms` }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { full_name: fullName } },
+  const db = await getDb()
+  const users = db.collection('users')
+
+  const normalizedEmail = email.trim().toLowerCase()
+  const existing = await users.findOne({ email: normalizedEmail })
+  if (existing) return { error: 'Email already in use' }
+
+  const passwordHash = await bcrypt.hash(password, 10)
+
+  const result = await users.insertOne({
+    email: normalizedEmail,
+    passwordHash,
+    fullName: fullName.trim() || undefined,
+    createdAt: new Date(),
   })
-  if (error) return { error: error.message }
-  if (data.session) {
-    revalidatePath('/', 'layout')
-    return { success: true }
-  }
-  return { success: true, message: 'Check your email for confirmation link' }
+
+  const insertedId = String(result.insertedId)
+
+  const jwt = signJwt(
+    { sub: insertedId, email: normalizedEmail, fullName: fullName.trim() || undefined },
+    60 * 60 * 24 * 7,
+  )
+  await setSessionToken(jwt)
+
+  revalidatePath('/', 'layout')
+  return { success: true }
 }
 
-
 export async function signout() {
-  const supabase = await createClient()
-  await supabase.auth.signOut()
+  await clearSessionToken()
   revalidatePath('/', 'layout')
   redirect('/login')
 }
 
-
 export async function getSession() {
-  const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  return session
-}
+  const token = await getSessionTokenFromCookies()
+  if (!token) return null
 
+  try {
+    const payload = verifyJwt(token)
+    return {
+      user: {
+        id: payload.sub,
+        email: payload.email,
+        fullName: payload.fullName,
+      },
+    }
+  } catch {
+    return null
+  }
+}
 
 export async function getUser() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
+  const session = await getSession()
+  return session?.user ?? null
 }
+
 

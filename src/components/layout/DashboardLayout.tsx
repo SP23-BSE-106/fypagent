@@ -3,17 +3,15 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 import { Bell, Search, HelpCircle } from "lucide-react";
+
 import { Sidebar } from "@/components/ui/Sidebar";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { useEffect, useState } from "react";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
-
 const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
+
   <svg
     viewBox="0 0 24 24"
     stroke="currentColor"
@@ -30,30 +28,33 @@ const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname();
-  const [user, setUser] = React.useState<any>(null);
-  const [userLoading, setUserLoading] = React.useState(true);
+  const [user, setUser] = React.useState<any>(null)
+  const [userLoading, setUserLoading] = React.useState(true)
+
 
   React.useEffect(() => {
     const fetchUser = async () => {
       try {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
-      } catch (err) {
-        console.error("Error fetching user:", err);
+        const res = await fetch('/api/auth/me')
+        const data = (await res.json().catch(() => ({}))) as { user?: any }
+        setUser(data.user ?? null)
+      } catch {
+        setUser(null)
       } finally {
-        setUserLoading(false);
+        setUserLoading(false)
       }
-    };
-    fetchUser();
+    }
+    fetchUser()
   }, []);
+
 
   const getUserInitials = () => {
     if (!user) return "??";
-    const name = user.user_metadata?.full_name || user.email || "";
+    const name = user.fullName || user.email || "";
     if (name) return name.split(" ").map((p: string) => p[0]).join("").toUpperCase().slice(0, 2);
     return "??";
   };
+
 
   const getPageTitle = () => {
     if (pathname === "/dashboard") return "Overview";

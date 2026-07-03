@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 
 import { rateLimit } from '@/lib/rateLimit'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || ''
+import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,9 +16,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const token = await getSessionTokenFromCookies()
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    verifyJwt(token)
 
     await request.json().catch(() => ({}))
 
@@ -32,4 +30,5 @@ export async function POST(request: NextRequest) {
   }
 
 }
+
 

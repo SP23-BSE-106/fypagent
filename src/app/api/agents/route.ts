@@ -1,25 +1,46 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from 'next/server'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
+import { getDb } from '@/lib/mongo/mongo'
+import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
 
 export async function GET() {
-  const supabase = createClient(supabaseUrl, supabaseKey);
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { data: agents, error } = await supabase.from('agents').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(agents);
+  const token = await getSessionTokenFromCookies()
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const payload = verifyJwt(token)
+  const userId = payload.sub
+
+  const db = await getDb()
+  const agents = await db
+    .collection('agents')
+    .find({ userId })
+    .sort({ createdAt: -1 })
+    .toArray()
+
+  return NextResponse.json(agents)
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient(supabaseUrl, supabaseKey);
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const body = await request.json();
-  const { name, description, prompt, model } = body;
-  const { data: agent, error } = await supabase.from('agents').insert({ user_id: user.id, name, description, prompt, model }).select().single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(agent);
+  const token = await getSessionTokenFromCookies()
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const payload = verifyJwt(token)
+  const userId = payload.sub
+
+  const body = await request.json()
+  const { name, description, prompt, model } = body
+
+  const db = await getDb()
+  const result = await db.collection('agents').insertOne({
+    userId,
+    name,
+    description,
+    prompt,
+    model,
+    createdAt: new Date(),
+  })
+
+  const inserted = await db.collection('agents').findOne({ _id: result.insertedId })
+  return NextResponse.json(inserted)
 }
+

@@ -264,17 +264,14 @@ function WorkflowBuilderInner() {
   };
 
   const handleSaveDraft = async () => {
-    if (!agentId) {
-      setSaveMessage("Create an agent first to save this draft.");
-      return;
-    }
+    const draftName = (agentNameFromQuery || "Untitled Draft").trim() || "Untitled Draft";
 
     setSaveBusy(true);
     setSaveMessage(null);
 
     try {
       const workflowPayload = {
-        name: agentNameFromQuery || "Saved Workflow",
+        name: draftName,
         description: "Workflow saved from the visual builder.",
         nodes: nodes.map((node) => ({
           id: node.id,
@@ -289,20 +286,39 @@ function WorkflowBuilderInner() {
         })),
       };
 
-      const res = await fetch(`/api/agents/${agentId}`, {
-        method: "PATCH",
+      const endpoint = agentId ? `/api/agents/${agentId}` : "/api/agents";
+      const method = agentId ? "PATCH" : "POST";
+      const body = agentId
+        ? {
+            workflow: workflowPayload,
+            status: "draft",
+            name: draftName,
+          }
+        : {
+            name: draftName,
+            description: "Saved draft from the visual builder.",
+            prompt: "",
+            workflow: workflowPayload,
+            status: "draft",
+          };
+
+      const res = await fetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workflow: workflowPayload,
-          status: "draft",
-          name: agentNameFromQuery || "Saved Workflow",
-        }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Failed to save draft.");
 
-      setSaveMessage("Draft saved to your agents list.");
+      if (data?._id && typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        params.set("agentId", data._id);
+        params.set("agentName", data.name || draftName);
+        router.replace(`${window.location.pathname}?${params.toString()}`);
+      }
+
+      setSaveMessage("Draft saved to My Agents.");
       setLogs((prev) => [...prev, "[SYSTEM] Draft saved successfully to the agent record."]);
       router.refresh();
     } catch (error) {

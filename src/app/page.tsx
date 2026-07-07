@@ -842,8 +842,8 @@ export default function LandingPage() {
                       transform: "skewX(-18deg)",
                     }}
                   />
-                  <span className="relative z-10">
-                    Start for Free{" "}
+                  <span className="relative z-10 flex items-center gap-2 whitespace-nowrap">
+                    <span>Start for Free</span>
                     <ArrowRight className="h-4 w-4 relative z-10" />
                   </span>
                 </button>

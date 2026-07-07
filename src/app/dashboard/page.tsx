@@ -2,78 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Cpu, GitBranch, Terminal, Activity, ArrowUpRight, Play, Settings, Plus, CheckCircle, Sparkles, BookOpen, MessageSquare } from "lucide-react";
+import { Cpu, GitBranch, Terminal, Activity, ArrowUpRight, Plus, Sparkles, BookOpen, MessageSquare, Play, Settings, CheckCircle } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-
-type ChapterHeaderProps = {
-  step: string;
-  title: string;
-  subtitle: string;
-};
-
-function DashboardChapterHeader({ step, title, subtitle }: ChapterHeaderProps) {
-  const [tilt, setTilt] = React.useState({ rx: 0, ry: 0 });
-
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-surface/20 glass-panel">
-      {/* ambient accents */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_10%,rgba(91,231,196,0.18),transparent_45%),radial-gradient(circle_at_85%_40%,rgba(56,189,248,0.12),transparent_55%)]" />
-      <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent-muted blur-2xl opacity-80" />
-      <div className="pointer-events-none absolute -left-24 -bottom-24 h-64 w-64 rounded-full bg-[rgba(56,189,248,0.08)] blur-2xl opacity-70" />
-
-      <div className="relative p-6 sm:p-8">
-        <div
-          className="transition-transform duration-200 will-change-transform"
-          style={{
-            transform: `perspective(900px) rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`,
-          }}
-          onMouseMove={(e) => {
-            const el = e.currentTarget;
-            const rect = el.getBoundingClientRect();
-            const px = (e.clientX - rect.left) / rect.width; // 0..1
-            const py = (e.clientY - rect.top) / rect.height; // 0..1
-            const ry = (px - 0.5) * 8; // left/right tilt
-            const rx = (0.5 - py) * 6; // up/down tilt
-            setTilt({ rx, ry });
-          }}
-          onMouseLeave={() => setTilt({ rx: 0, ry: 0 })}
-        >
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl border border-accent/20 bg-[rgba(91,231,196,0.08)] flex items-center justify-center text-accent font-black">
-                  {step}
-                </div>
-                <div className="h-px w-10 bg-gradient-to-r from-accent/70 to-transparent" />
-                <p className="text-[11px] font-bold uppercase tracking-widest text-muted">
-                  Chapter
-                </p>
-              </div>
-              <h2 className="font-h1 font-bold text-foreground">{title}</h2>
-              <p className="text-xs text-muted max-w-2xl">{subtitle}</p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-2 rounded-xl border border-border/60 bg-surface/20 px-4 py-2">
-                <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-                <span className="text-[10px] font-semibold text-foreground/80">Story mode</span>
-              </div>
-              <div className="hidden md:flex h-10 w-10 rounded-xl border border-border/60 bg-surface/20 items-center justify-center">
-                <span className="text-accent font-black text-lg">▣</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* divider line */}
-        <div className="mt-6 h-px w-full bg-gradient-to-r from-accent/50 via-border/40 to-transparent" />
-      </div>
-    </div>
-  );
-}
 
 export default function DashboardPage() {
   const stats = [
@@ -111,203 +44,120 @@ export default function DashboardPage() {
   ];
 
   const activityFeed = [
-    { event: "Workflow Customer Support compiled successfully", time: "10 mins ago", type: "success" },
-    { event: "Agent Lead Gen deployed to production widget", time: "2 hours ago", type: "info" },
-    { event: "RAG index 'UserGuide.pdf' completed (48 chunks)", time: "5 hours ago", type: "success" },
-    { event: "Sandbox connection test: DeepSeek V3 API successful", time: "1 day ago", type: "success" },
+    { event: "Support workflow compiled successfully", time: "10 mins ago" },
+    { event: "Knowledge base updated with 3 new docs", time: "2 hours ago" },
+    { event: "Sandbox test completed", time: "1 day ago" },
   ];
 
   return (
     <DashboardLayout>
-      <DashboardChapterHeader
-        step="01"
-        title="Overview"
-        subtitle="Your orchestration workspace comes alive—agents, workflows, deployments, and analytics in one story."
-      />
-      <div className="space-y-8 select-none">
-        {/* Welcome Callout Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="text-left">
-            <h2 className="font-h1 font-bold text-foreground">Welcome to AgentFlow</h2>
-            <p className="text-xs text-muted mt-1">
-              Your orchestration workspace is active. Create collaborative workflows or inspect your deployment API endpoints.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard/templates">
-              <Button variant="secondary" size="sm">
-                Browse Templates
-              </Button>
-            </Link>
-            <Link href="/workflow-builder">
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-1.5" />
-                New Workflow
-              </Button>
-            </Link>
+      <div className="space-y-6 select-none">
+        <div className="rounded-2xl border border-border/60 bg-surface/70 p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">Workspace overview</p>
+              <h2 className="font-h1 font-bold text-foreground">Welcome back</h2>
+              <p className="text-xs text-muted max-w-2xl">
+                Create agents, attach knowledge, and keep your workflows focused without extra visual noise.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link href="/dashboard/agents/create">
+                <Button size="sm">
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Create Agent
+                </Button>
+              </Link>
+              <Link href="/workflow-builder">
+                <Button variant="secondary" size="sm">
+                  Open Builder
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid gap-4 md:grid-cols-3">
           {stats.map((stat, i) => {
             const Icon = stat.icon;
             return (
-              <Card key={i} hoverEffect>
-                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <span className="text-xs font-bold text-muted uppercase tracking-wider">{stat.title}</span>
-                  <div className="h-8 w-8 rounded-lg bg-surface-light flex items-center justify-center text-accent">
+              <Card key={i} hoverEffect className="p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">{stat.title}</span>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-light text-accent">
                     <Icon className="h-4.5 w-4.5" />
                   </div>
-                </CardHeader>
-                <CardContent className="text-left">
-                  <div className="text-2xl font-bold tracking-tight text-foreground">{stat.value}</div>
-                  <p className="text-[10px] text-accent mt-1.5 font-medium">{stat.detail}</p>
-                </CardContent>
+                </div>
+                <div className="mt-4 text-2xl font-bold tracking-tight text-foreground">{stat.value}</div>
+                <p className="mt-1 text-[10px] text-accent">{stat.detail}</p>
               </Card>
             );
           })}
         </div>
 
-        {/* Mid Grid: Recent Projects & Activities */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Website Templates (What you can build) */}
-          <div className="lg:col-span-3">
-            <div className="flex items-center justify-between gap-4">
-              <h3 className="font-h3 font-bold text-foreground">Website Templates</h3>
-              <Link href="/dashboard/templates" className="text-xs text-accent hover:underline font-semibold flex items-center">
-                Browse all <ArrowUpRight className="h-3 w-3 ml-0.5" />
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-h3 font-bold text-foreground">Start with a template</h3>
+              <Link href="/dashboard/templates" className="text-xs font-semibold text-accent hover:underline">
+                View all
               </Link>
             </div>
-            <p className="text-xs text-muted mt-1 max-w-2xl">
-              Pick a pre-built template that matches your website idea. Deploy, then tweak the workflow in Canvas.
-            </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-5">
+            <div className="grid gap-4 md:grid-cols-3">
               {[
-                {
-                  title: "About & Value Prop",
-                  desc: "Turn your product notes into a clean homepage story—sections, messaging, and CTAs.",
-                  icon: "Sparkles",
-                },
-                {
-                  title: "FAQ & Knowledge Hub",
-                  desc: "Convert docs into searchable Q&A templates with citations-ready answers.",
-                  icon: "BookOpen",
-                },
-                {
-                  title: "Contact & Lead Capture",
-                  desc: "Auto-triage messages, classify intent, and draft reply templates that convert.",
-                  icon: "MessageSquare",
-                },
-              ].map((t) => (
-                <Link key={t.title} href="/dashboard/templates" className="block">
-                  <Card hoverEffect className="p-5 flex flex-col justify-between border border-border/80">
-                    <div className="space-y-3">
-                      <div className="h-10 w-10 rounded-lg bg-surface-light flex items-center justify-center text-accent border border-accent/20">
-                      {t.icon === "Sparkles" && <Sparkles className="h-5 w-5" />}
-                      {t.icon === "BookOpen" && <BookOpen className="h-5 w-5" />}
-                      {t.icon === "MessageSquare" && <MessageSquare className="h-5 w-5" />}
-                    </div>
-                    <CardTitle className="text-xs font-bold text-foreground">{t.title}</CardTitle>
-                    <CardDescription className="text-[10px] text-muted leading-relaxed">
-                      {t.desc}
-                    </CardDescription>
-                  </div>
-                  <div className="mt-4">
-                    <Button variant="secondary" size="sm" className="w-full">
-                      View Template
-                      <ArrowUpRight className="h-3 w-3 ml-1" />
-                    </Button>
-                  </div>
-                  </Card>
-                </Link>
-              ))}
+                { title: "Support Agent", desc: "Handle FAQs and tickets with grounded responses.", icon: Sparkles },
+                { title: "Knowledge Assistant", desc: "Answer questions from policy and product docs.", icon: BookOpen },
+                { title: "Sales Agent", desc: "Enrich leads and create first-touch messages.", icon: MessageSquare },
+              ].map((template) => {
+                const Icon = template.icon;
+                return (
+                  <Link key={template.title} href="/dashboard/templates" className="block">
+                    <Card hoverEffect className="h-full p-4">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/20 bg-accent-muted/20 text-accent">
+                        <Icon className="h-4.5 w-4.5" />
+                      </div>
+                      <CardTitle className="mt-3 text-xs font-bold text-foreground">{template.title}</CardTitle>
+                      <CardDescription className="mt-2 text-[10px] text-muted leading-relaxed">{template.desc}</CardDescription>
+                    </Card>
+                  </Link>
+                );
+              })}
             </div>
           </div>
 
-          {/* Recent Projects & Activities */}
-
-          {/* Recent Projects List */}
-          <div className="lg:col-span-2 space-y-4 text-left">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-h3 font-bold text-foreground">Recent Agent Workflows</h3>
-              <Link href="/workflow-builder" className="text-xs text-accent hover:underline font-semibold flex items-center">
-                Open Canvas <ArrowUpRight className="h-3 w-3 ml-0.5" />
+              <h3 className="font-h3 font-bold text-foreground">Recent work</h3>
+              <Link href="/workflow-builder" className="text-xs font-semibold text-accent hover:underline">
+                Open builder
               </Link>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {recentFlows.map((flow, i) => (
-                <Card key={i} hoverEffect className="flex flex-col justify-between">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <Link href="/workflow-builder">
-                          <CardTitle className="text-xs font-bold text-foreground hover:text-accent cursor-pointer transition-colors">
-                            {flow.name}
-                          </CardTitle>
-                        </Link>
-                        <CardDescription className="text-[10px]">{flow.model} • {flow.nodes} Nodes</CardDescription>
-                      </div>
-                      <Badge variant={flow.status === "Active" ? "success" : "secondary"}>
-                        {flow.status}
-                      </Badge>
+            <div className="space-y-3">
+              {recentFlows.slice(0, 2).map((flow, i) => (
+                <Card key={i} hoverEffect className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold text-foreground">{flow.name}</p>
+                      <p className="mt-1 text-[10px] text-muted">{flow.model} • {flow.nodes} nodes</p>
                     </div>
-                  </CardHeader>
-                  <CardContent className="py-0">
-                    <p className="text-xs text-muted leading-relaxed line-clamp-2">
-                      {flow.description}
-                    </p>
-                  </CardContent>
-                  <div className="p-6 pt-4 border-t border-border/40 mt-4 flex items-center justify-between text-[10px] text-muted">
-                    <span>Updated {flow.updated}</span>
-                    <div className="flex gap-2">
-                      <Link href="/testing-sandbox">
-                        <button className="p-1 hover:text-accent transition-colors"><Play className="h-3.5 w-3.5" /></button>
-                      </Link>
-                      <Link href="/workflow-builder">
-                        <button className="p-1 hover:text-foreground transition-colors"><Settings className="h-3.5 w-3.5" /></button>
-                      </Link>
-                    </div>
+                    <Badge variant={flow.status === "Active" ? "success" : "secondary"}>{flow.status}</Badge>
                   </div>
                 </Card>
               ))}
-
-              {/* Quick Create Card */}
-              <div className="border border-dashed border-border/80 hover:border-accent/40 rounded-xl bg-surface/10 hover:bg-surface-light/10 flex flex-col items-center justify-center p-8 text-center transition-all cursor-pointer group">
-                <Link href="/workflow-builder" className="flex flex-col items-center">
-                  <div className="h-10 w-10 rounded-full border border-dashed border-border group-hover:border-accent/40 bg-surface flex items-center justify-center text-muted group-hover:text-accent mb-3 transition-colors">
-                    <Plus className="h-5 w-5" />
-                  </div>
-                  <span className="text-xs font-bold text-foreground group-hover:text-accent transition-colors">Create New Flow</span>
-                  <span className="text-[10px] text-muted mt-1 max-w-[160px]">Drag & drop node blocks to model logical chains.</span>
-                </Link>
-              </div>
             </div>
-          </div>
 
-          {/* Activity Feed Sidebar */}
-          <div className="space-y-4 text-left">
-            <h3 className="font-h3 font-bold text-foreground">Workspace Activities</h3>
-            <Card className="p-5 h-full">
-              <div className="space-y-4.5">
-                {activityFeed.map((act, i) => (
-                  <div key={i} className="flex items-start gap-3 text-xs">
-                    <CheckCircle className="h-4.5 w-4.5 text-accent mt-0.5 flex-shrink-0" />
-                    <div className="flex flex-col">
-                      <span className="text-foreground/90 font-medium leading-normal">{act.event}</span>
-                      <span className="text-[10px] text-muted mt-1">{act.time}</span>
+            <Card className="p-4">
+              <div className="space-y-3">
+                {activityFeed.map((item, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-muted">
+                    <CheckCircle className="mt-0.5 h-4 w-4 text-accent" />
+                    <div>
+                      <p className="text-foreground">{item.event}</p>
+                      <p className="mt-0.5 text-[10px] text-muted">{item.time}</p>
                     </div>
                   </div>
                 ))}
-              </div>
-              <div className="border-t border-border/40 mt-6 pt-4 text-center">
-                <Link href="/testing-sandbox">
-                  <Button variant="ghost" size="sm" className="w-full text-xs font-semibold">
-                    View Execution Logs
-                  </Button>
-                </Link>
               </div>
             </Card>
           </div>

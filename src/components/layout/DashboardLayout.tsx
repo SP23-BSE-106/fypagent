@@ -6,9 +6,11 @@ import { usePathname } from "next/navigation";
 import { Bell, Search, HelpCircle } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/Sidebar";
-import { Input } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
-import { useEffect, useState } from "react";
+
+interface UserProfile {
+  fullName?: string;
+  email?: string;
+}
 
 const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
@@ -28,7 +30,7 @@ const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname();
-  const [user, setUser] = React.useState<any>(null)
+  const [user, setUser] = React.useState<UserProfile | null>(null)
   const [userLoading, setUserLoading] = React.useState(true)
 
 
@@ -36,7 +38,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     const fetchUser = async () => {
       try {
         const res = await fetch('/api/auth/me')
-        const data = (await res.json().catch(() => ({}))) as { user?: any }
+        const data = (await res.json().catch(() => ({}))) as { user?: UserProfile }
         setUser(data.user ?? null)
       } catch {
         setUser(null)
@@ -131,7 +133,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
                   <HelpCircle className="h-4 w-4" />
                 </button>
               </Link>
-              <div className="h-4 w-[1px] bg-border/60 mx-1" />
+              <div className="h-4 w-px bg-border/60 mx-1" />
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-full bg-accent/20 flex items-center justify-center text-[10px] font-bold text-accent border border-accent/20">
                   {userLoading ? "..." : getUserInitials()}

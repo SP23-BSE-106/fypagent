@@ -79,7 +79,7 @@ export async function PATCH(
   if (!body) return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
 
   // Only allow updating safe fields
-  const allowed = ['name', 'description', 'status', 'tags', 'llmProvider']
+  const allowed = ['name', 'description', 'status', 'tags', 'llmProvider', 'prompt', 'workflow', 'userApiKey']
   const update: Record<string, unknown> = { updatedAt: new Date() }
   for (const key of allowed) {
     if (key in body) update[key] = body[key]

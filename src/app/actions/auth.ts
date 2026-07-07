@@ -10,6 +10,10 @@ import { getDb } from '@/lib/mongo/mongo'
 import { rateLimit } from '@/lib/rateLimit'
 import { clearSessionToken, getSessionTokenFromCookies, setSessionToken, signJwt, verifyJwt } from '@/lib/auth/jwt'
 
+function isStrongPassword(password: string) {
+  return password.length >= 12 && /[A-Z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password)
+}
+
 export async function login(email: string, password: string) {
   const rl = rateLimit(`auth:login:${email}`, { windowMs: 60_000, max: 5 })
   if (!rl.ok) return { error: `Too many requests. Retry after ${rl.retryAfterMs}ms` }
@@ -39,6 +43,7 @@ export async function login(email: string, password: string) {
 export async function signup(email: string, password: string, fullName: string) {
   const rl = rateLimit(`auth:signup:${email}`, { windowMs: 60_000, max: 5 })
   if (!rl.ok) return { error: `Too many requests. Retry after ${rl.retryAfterMs}ms` }
+  if (!isStrongPassword(password)) return { error: 'Password must be at least 12 characters and include an uppercase letter, a number, and a special character' }
 
   const db = await getDb()
   const users = db.collection('users')

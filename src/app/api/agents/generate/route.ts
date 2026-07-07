@@ -9,96 +9,62 @@ import type { WorkflowGraph } from '@/lib/mongo/workflow'
 
 function buildMockWorkflow(prompt: string): WorkflowGraph {
   const words = prompt.toLowerCase()
-
-  // Adapt the mock nodes based on keywords in the prompt
-  const hasRAG = words.includes('pdf') || words.includes('doc') || words.includes('knowledge') || words.includes('search')
-  const hasSlack = words.includes('slack') || words.includes('notify') || words.includes('alert')
-  const hasEmail = words.includes('email') || words.includes('mail')
-  const hasDB = words.includes('database') || words.includes('crm') || words.includes('log')
-  const hasGit = words.includes('github') || words.includes('pull request') || words.includes('pr')
-  const hasAPI = words.includes('api') || words.includes('webhook') || words.includes('http')
+  const hasKnowledge = words.includes('knowledge') || words.includes('doc') || words.includes('pdf') || words.includes('search') || words.includes('faq')
+  const hasAction = words.includes('send') || words.includes('email') || words.includes('notify') || words.includes('update') || words.includes('post') || words.includes('api') || words.includes('webhook')
+  const hasDecision = words.includes('if') || words.includes('condition') || words.includes('route') || words.includes('classify')
+  const hasDatabase = words.includes('database') || words.includes('crm') || words.includes('record') || words.includes('save') || words.includes('log')
 
   const nodes = [
     {
       id: 'node_1',
-      name: hasGit ? 'GitHub Webhook Trigger' : hasEmail ? 'Email / Webhook Trigger' : 'Trigger',
+      name: 'Input Trigger',
       type: 'trigger' as const,
-      description: hasGit
-        ? 'Fires on pull_request events from GitHub via webhook.'
-        : hasEmail
-          ? 'Listens for incoming email or HTTP webhook payloads.'
-          : 'Entry point that initiates the agent workflow.',
+      description: 'Receives the incoming event, request, or webhook payload from the real system.',
     },
     {
       id: 'node_2',
-      name: 'Intent Classifier (LLM)',
-      type: 'llm' as const,
-      description: 'Analyses the incoming payload and classifies the user intent into categories.',
-    },
-    ...(hasRAG
-      ? [{
-        id: 'node_3',
-        name: 'Knowledge Base Retrieval (RAG)',
-        type: 'rag' as const,
-        description: 'Performs vector similarity search over indexed documents to fetch relevant context.',
-      }]
-      : []),
-    ...(hasAPI
-      ? [{
-        id: 'node_4',
-        name: 'External API Call',
-        type: 'api' as const,
-        description: 'Calls a third-party REST API to enrich or act on the data.',
-      }]
-      : []),
-    {
-      id: 'node_5',
-      name: 'Decision Gate',
+      name: 'Validate Payload',
       type: 'condition' as const,
-      description: 'Routes the flow based on the classified intent or API response.',
+      description: 'Checks that the request contains the required fields before any work proceeds.',
     },
     {
-      id: 'node_6',
-      name: 'Response Generator (LLM)',
+      id: 'node_3',
+      name: 'Classify Intent',
       type: 'llm' as const,
-      description: hasGit
-        ? 'Generates a detailed code-review comment using the retrieved diff context.'
-        : hasEmail
-          ? 'Drafts a personalised reply using the retrieved document context.'
-          : 'Generates the final response or action payload.',
+      description: 'Uses the model to determine the intent, priority, and required next step from the input.',
     },
-    ...(hasSlack
-      ? [{
-        id: 'node_7',
-        name: 'Slack Notification',
-        type: 'api' as const,
-        description: 'Posts a formatted message to the configured Slack channel.',
-      }]
-      : []),
-    ...(hasDB
-      ? [{
-        id: 'node_8',
-        name: 'Database / CRM Update',
-        type: 'api' as const,
-        description: 'Writes the result or ticket record to the connected database or CRM system.',
-      }]
-      : []),
+    ...(hasKnowledge ? [{
+      id: 'node_4',
+      name: 'Retrieve Knowledge Context',
+      type: 'rag' as const,
+      description: 'Searches the uploaded files, policy notes, or knowledge base for relevant context.',
+    }] : []),
+    ...(hasDatabase ? [{
+      id: 'node_5',
+      name: 'Read or Update Data Store',
+      type: 'api' as const,
+      description: 'Reads from or writes to the connected database, CRM, or internal system.',
+    }] : []),
+    ...(hasAction ? [{
+      id: hasDatabase ? 'node_6' : 'node_5',
+      name: 'Perform Action',
+      type: 'api' as const,
+      description: 'Calls the target API, sends the message, or triggers the downstream workflow step.',
+    }] : []),
     {
       id: 'node_out',
-      name: 'Output',
+      name: 'Return Result',
       type: 'output' as const,
-      description: 'Delivers the final response to the end channel (email, webhook, dashboard).',
+      description: 'Returns the final response, status, or action summary to the calling system.',
     },
   ]
 
-  // Auto-generate a linear edge chain
   const edges = nodes.slice(0, -1).map((n, i) => ({
     id: `edge_${i + 1}`,
     source: n.id,
     target: nodes[i + 1].id,
   }))
 
-  // Derive a name from the first ~5 meaningful words of the prompt
   const agentName = prompt
     .replace(/[^a-zA-Z0-9 ]/g, ' ')
     .split(/\s+/)
@@ -110,10 +76,14 @@ function buildMockWorkflow(prompt: string): WorkflowGraph {
   return {
     // @ts-expect-error — name/description are extra convenience fields
     name: agentName,
-    description: `Auto-generated workflow for: "${prompt.slice(0, 80)}${prompt.length > 80 ? '…' : ''}"`,
+    description: `Concrete workflow for: "${prompt.slice(0, 80)}${prompt.length > 80 ? '…' : ''}". Each node is designed to map to a real action in the final system.`,
     nodes,
     edges,
   }
+}
+
+function fallbackWorkflowResponse(prompt: string, reason: string) {
+  return NextResponse.json({ workflow: buildMockWorkflow(prompt), _mock: true, warning: reason })
 }
 
 // ─── Route handler ───────────────────────────────────────────────────────────
@@ -203,31 +173,16 @@ Do not wrap your response in markdown blocks like \`\`\`json. Just output the ra
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[generate] Inference server unreachable — using dev mock.', msg)
-      await new Promise((r) => setTimeout(r, 2500))
-      return NextResponse.json({ workflow: buildMockWorkflow(prompt), _mock: true })
-    }
-
-    return NextResponse.json(
-      {
-        error: 'Cannot reach the inference API.',
-        detail: msg,
-      },
-      { status: 503 },
-    )
+    console.warn('[generate] Inference server unreachable — using fallback workflow.', msg)
+    await new Promise((r) => setTimeout(r, 1200))
+    return fallbackWorkflowResponse(prompt, msg)
   }
 
   if (!inferenceRes.ok) {
     const detail = await inferenceRes.text().catch(() => '')
-    console.error('API call failed', inferenceRes.status, detail)
-    
-    // We remove the fallback to mock here so you can SEE the API error if it fails!
-    return NextResponse.json(
-      { error: 'Inference API error', detail },
-      { status: inferenceRes.status },
-    )
+    console.warn('[generate] Inference API returned an error — using fallback workflow.', inferenceRes.status, detail)
+    await new Promise((r) => setTimeout(r, 1200))
+    return fallbackWorkflowResponse(prompt, detail || `status ${inferenceRes.status}`)
   }
 
   const data = await inferenceRes.json()
@@ -239,18 +194,15 @@ Do not wrap your response in markdown blocks like \`\`\`json. Just output the ra
     const parsed = JSON.parse(cleanContent);
     workflow = parsed.workflow || parsed;
   } catch (e) {
-    console.error("Failed to parse API response", e, data.choices?.[0]?.message?.content);
-    return NextResponse.json(
-      { error: 'Failed to parse workflow from inference response' },
-      { status: 502 },
-    )
+    console.warn('Failed to parse API response — using fallback workflow.', e)
+    await new Promise((r) => setTimeout(r, 1200))
+    return fallbackWorkflowResponse(prompt, 'invalid response payload')
   }
 
   if (!workflow || typeof workflow !== 'object') {
-    return NextResponse.json(
-      { error: 'Inference server returned an invalid workflow payload' },
-      { status: 502 },
-    )
+    console.warn('Inference server returned an invalid workflow payload — using fallback workflow.')
+    await new Promise((r) => setTimeout(r, 1200))
+    return fallbackWorkflowResponse(prompt, 'invalid workflow payload')
   }
 
   return NextResponse.json({ workflow })

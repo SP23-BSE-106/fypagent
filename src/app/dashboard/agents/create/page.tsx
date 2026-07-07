@@ -7,7 +7,8 @@ import {
   Sparkles, Send, CheckCircle, ArrowRight, ArrowLeft,
   Cpu, MessageSquare, AlertTriangle, Loader2, Key,
   ChevronRight, Save, ExternalLink, Tag, Info,
-  Zap, Database, GitMerge, Globe, BrainCircuit, Terminal, Layers
+  Zap, Database, GitMerge, Globe, BrainCircuit, Terminal, Layers,
+  UploadCloud, FileText, Trash2
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
@@ -36,32 +37,9 @@ const PROVIDERS: LLMProvider[] = [
 ];
 
 const QUICK_TEMPLATES = [
-  { category: "Support", name: "Customer Support Orchestrator", prompt: "Create a customer support agent that reads uploaded PDFs, classifies customer intent, searches the knowledge base, and drafts personalized email responses based on sentiment." },
-  { category: "Support", name: "Refund Processor", prompt: "Build an agent that receives refund requests via webhook, verifies order status in Stripe API, determines eligibility based on policy chunks in a vector DB, and issues the refund." },
-  { category: "Support", name: "Multi-language Support Router", prompt: "An agent that detects the language of an incoming ticket, translates it to English, classifies urgency, and assigns it to the correct department queue." },
-  
-  { category: "Sales", name: "SaaS Lead Enrichment", prompt: "Build an automated agent flow that triggers when a user registers, enriches their profile via LinkedIn and Clearbit API lookups, scores them, and posts a digest to Slack." },
-  { category: "Sales", name: "Cold Email Drafter", prompt: "Create an agent that takes a company domain, crawls their website for key value props, and drafts 3 variations of highly personalized cold outreach emails." },
-  { category: "Sales", name: "CRM Data Cleaner", prompt: "Design a daily scheduled agent that fetches recent Salesforce contacts, fixes casing/formatting, identifies duplicates using an LLM, and updates the records via API." },
-  
-  { category: "DevOps", name: "PR Security Guard", prompt: "Design a GitHub workflow agent that reviews pull request diffs, checks for API credential leaks and SQL injection patterns, and posts inline security review comments." },
-  { category: "DevOps", name: "Incident Triage Bot", prompt: "An agent triggered by PagerDuty alerts that pulls recent Datadog error logs, uses an LLM to summarize the likely root cause, and opens a Jira ticket." },
-  { category: "DevOps", name: "Release Notes Generator", prompt: "Create an agent that runs on a new tag release, fetches all merged PRs since the last tag, categorizes them into features/fixes, and drafts the GitHub release notes." },
-  
-  { category: "Data", name: "Invoice Processing Bot", prompt: "Create an agent that ingests incoming invoice PDFs via email, extracts fields using OCR, validates against purchase orders, and updates the accounting system." },
-  { category: "Data", name: "Competitor Price Tracker", prompt: "Build an agent that scrapes competitor pricing pages daily, extracts the pricing tiers using an LLM, compares them against our database, and alerts the team of changes." },
-  { category: "Data", name: "Sentiment Analysis Pipeline", prompt: "An agent that triggers on new Trustpilot reviews, performs sentiment analysis, categorizes the feedback into product areas, and pushes the data to a Google Sheet." },
-
-  { category: "HR", name: "Resume Screener", prompt: "Design an agent that triggers when a PDF resume is uploaded, parses the text, scores the candidate against the job description using an LLM, and emails the recruiter a summary." },
-  { category: "HR", name: "Employee Onboarding Assistant", prompt: "Create a Slack bot agent that welcomes new hires, answers their HR policy questions using a RAG database of the employee handbook, and triggers IT provisioning APIs." },
-  { category: "HR", name: "Interview Question Generator", prompt: "An agent that takes a job role and candidate's tech stack as input, searches a database of technical questions, and generates a tailored 45-minute technical interview script." },
-
-  { category: "Marketing", name: "Blog to Social Media Converter", prompt: "Build an agent that takes a blog post URL, extracts the content, and generates a Twitter thread, a LinkedIn post, and a Facebook summary." },
-  { category: "Marketing", name: "SEO Content Brief Generator", prompt: "An agent that accepts a target keyword, fetches the top 10 Google results, analyzes their headings, and generates a comprehensive SEO content brief with recommended word count." },
-  { category: "Marketing", name: "Ad Copy Variations Bot", prompt: "Create an agent that takes a product description and target audience persona, and generates 5 variations of Facebook Ad copy focusing on different emotional triggers." },
-
-  { category: "Security", name: "Phishing Email Analyzer", prompt: "Design an agent that ingests forwarded suspicious emails, analyzes the headers and links using VirusTotal API, and responds to the employee with a safety verdict." },
-  { category: "Security", name: "Compliance Auditor", prompt: "An agent that reads cloud infrastructure configuration JSON files, checks them against SOC2 compliance rules using an LLM, and generates an audit report." }
+  { category: "Support", name: "Customer Support Orchestrator", prompt: "Create a customer support agent that reads uploaded documents, classifies customer intent, searches the knowledge base, and drafts personalized email responses." },
+  { category: "Sales", name: "Lead Enrichment Agent", prompt: "Build an agent that enriches new leads with company context, scores their fit, and drafts a tailored outreach message." },
+  { category: "Operations", name: "Internal Knowledge Assistant", prompt: "Create an agent that answers employee questions from uploaded product docs, onboarding notes, and policy files." },
 ];
 
 // ─── Node type → icon / colour mapping ──────────────────────────────────────
@@ -128,10 +106,10 @@ function NodeCard({ node, index }: { node: WorkflowNode; index: number }) {
     <div className="relative group flex gap-4 pl-2">
       {/* connector line */}
       <div className="flex flex-col items-center">
-        <div className="h-8 w-8 rounded-xl border border-border bg-surface flex items-center justify-center flex-shrink-0">
+        <div className="h-8 w-8 rounded-xl border border-border bg-surface flex items-center justify-center shrink-0">
           <Icon className={`h-3.5 w-3.5 ${meta.colour}`} />
         </div>
-        <div className="w-px flex-1 bg-border/50 mt-1 mb-0 min-h-[16px]" />
+        <div className="w-px flex-1 bg-border/50 mt-1 mb-0 min-h-4" />
       </div>
       <div className="flex-1 pb-4">
         <div className="flex items-center gap-2 flex-wrap">
@@ -164,6 +142,11 @@ export default function CreateAgentPage() {
   const [provider, setProvider] = React.useState(PROVIDERS[0].id);
   const [apiKey, setApiKey] = React.useState("");
   const [showKey, setShowKey] = React.useState(false);
+  const [knowledgeBaseEnabled, setKnowledgeBaseEnabled] = React.useState(true);
+  const [knowledgeBase, setKnowledgeBase] = React.useState("");
+  const [uploadedDocuments, setUploadedDocuments] = React.useState<Array<{ id: string; name: string; size: string; content: string }>>([]);
+  const [uploadError, setUploadError] = React.useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   // ── Async state ────────────────────────────────────────────────────────────
   const [generating, setGenerating] = React.useState(false);
@@ -204,6 +187,37 @@ export default function CreateAgentPage() {
     setLogLines([]);
   }
 
+  const handleDocumentUpload = async (files: FileList | null) => {
+    if (!files?.length) return;
+
+    setUploadError(null);
+    try {
+      const nextDocs = await Promise.all(
+        Array.from(files).map(async (file) => {
+          const isTextLike = file.type.startsWith("text/") || /\.(txt|md|json|csv)$/i.test(file.name);
+          const content = isTextLike
+            ? await file.text()
+            : "[PDF or binary content preview is not available in this demo. Upload text-based files for richer knowledge context.]";
+
+          return {
+            id: `${file.name}-${file.size}-${Date.now()}`,
+            name: file.name,
+            size: `${(file.size / 1024).toFixed(0)} KB`,
+            content: content.slice(0, 4000),
+          };
+        }),
+      );
+
+      setUploadedDocuments((prev) => [...nextDocs, ...prev]);
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Unable to read the selected file.");
+    }
+  };
+
+  const removeDocument = (id: string) => {
+    setUploadedDocuments((prev) => prev.filter((doc) => doc.id !== id));
+  };
+
   // ── Step 1 → Generate ──────────────────────────────────────────────────────
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -216,10 +230,23 @@ export default function CreateAgentPage() {
     startGeneratingLog();
 
     try {
+      const baseContext = [
+        knowledgeBaseEnabled && knowledgeBase.trim() ? `Knowledge base notes:\n${knowledgeBase.trim()}` : null,
+        uploadedDocuments.length > 0
+          ? `Uploaded documents:\n${uploadedDocuments
+              .map((doc) => `- ${doc.name}: ${doc.content}`)
+              .join("\n\n")}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
+      const enrichedPrompt = baseContext ? `${prompt}\n\n${baseContext}` : prompt;
+
       const res = await fetch("/api/agents/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt: enrichedPrompt }),
       });
 
       const data = await res.json();
@@ -234,12 +261,15 @@ export default function CreateAgentPage() {
       clearLog();
       setIsMock(!!data._mock);
       setWorkflow(data.workflow as WorkflowGraph);
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem("pendingWorkflow", JSON.stringify(data.workflow));
+      }
       // Pre-fill agent name from workflow name if provided
       if (data.workflow?.name) {
         setAgentName(data.workflow.name);
         setAgentDesc(data.workflow.description ?? "");
       }
-      setStep(2);
+      router.replace(`/workflow-builder?fromCreate=1&workflow=${encodeURIComponent(JSON.stringify(data.workflow))}`);
     } catch (err) {
       clearLog();
       setGenerateError(err instanceof Error ? err.message : "An unexpected error occurred.");
@@ -317,7 +347,7 @@ export default function CreateAgentPage() {
                     <textarea
                       id="agent-prompt"
                       placeholder="e.g., Build an agent that monitors production database logs, searches vector storage for known error resolutions, drafts troubleshooting steps, and logs support tickets automatically…"
-                      className="flex min-h-[160px] w-full rounded-lg border border-border bg-surface px-3.5 py-3 text-sm text-foreground placeholder:text-muted/50 transition-all focus:border-accent/60 focus:outline-none focus:ring-1 focus:ring-accent/30 resize-none"
+                      className="flex min-h-40 w-full rounded-lg border border-border bg-surface px-3.5 py-3 text-sm text-foreground placeholder:text-muted/50 transition-all focus:border-accent/60 focus:outline-none focus:ring-1 focus:ring-accent/30 resize-none"
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
                       disabled={generating}
@@ -329,10 +359,30 @@ export default function CreateAgentPage() {
                       <Sparkles className="h-3.5 w-3.5 text-accent animate-pulse" />
                       Powered by Kimi AI API
                     </span>
-                    <Button type="submit" isLoading={generating} disabled={!prompt.trim() || generating}>
-                      <Send className="h-3.5 w-3.5 mr-1.5" />
-                      Generate Workflow
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        multiple
+                        accept=".txt,.md,.json,.csv,.pdf"
+                        onChange={(e) => handleDocumentUpload(e.target.files)}
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={generating}
+                      >
+                        <UploadCloud className="mr-1.5 h-3.5 w-3.5" />
+                        Upload file
+                      </Button>
+                      <Button type="submit" isLoading={generating} disabled={!prompt.trim() || generating}>
+                        <Send className="h-3.5 w-3.5 mr-1.5" />
+                        Generate Workflow
+                      </Button>
+                    </div>
                   </div>
                 </form>
               </Card>
@@ -349,7 +399,7 @@ export default function CreateAgentPage() {
                   <div className="space-y-2 font-mono">
                     {logLines.map((line, i) => (
                       <div key={i} className="flex items-center gap-2 text-[10px] text-muted">
-                        <ChevronRight className="h-3 w-3 text-accent flex-shrink-0" />
+                        <ChevronRight className="h-3 w-3 text-accent shrink-0" />
                         {line}
                       </div>
                     ))}
@@ -364,7 +414,7 @@ export default function CreateAgentPage() {
               {generateError && !generating && (
                 <Card className="p-5 border-red-500/30 bg-red-500/5">
                   <div className="flex items-start gap-3">
-                    <AlertTriangle className="h-4.5 w-4.5 text-red-400 mt-0.5 flex-shrink-0" />
+                    <AlertTriangle className="h-4.5 w-4.5 text-red-400 mt-0.5 shrink-0" />
                     <div className="space-y-1">
                       <p className="text-xs font-bold text-red-400">Generation Failed</p>
                       <p className="text-[11px] text-muted whitespace-pre-wrap">{generateError}</p>
@@ -405,6 +455,59 @@ export default function CreateAgentPage() {
                 ))}
               </div>
 
+              <Card className="p-4 space-y-3 border border-border/40 bg-surface/20">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-bold text-muted uppercase tracking-wider flex items-center gap-1.5">
+                    <Database className="h-3 w-3" /> Knowledge Base
+                  </p>
+                  <label className="flex items-center gap-2 text-[10px] text-muted">
+                    <input
+                      type="checkbox"
+                      checked={knowledgeBaseEnabled}
+                      onChange={(e) => setKnowledgeBaseEnabled(e.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-border bg-surface text-accent"
+                    />
+                    Enable
+                  </label>
+                </div>
+                <p className="text-[10px] text-muted leading-relaxed">
+                  Add supporting documents and short notes here so the agent can reason from the same context you use in production.
+                </p>
+
+                <p className="rounded-lg border border-dashed border-border/70 bg-surface/60 px-3 py-3 text-[10px] text-muted">
+                  Use the upload button above before generating so the selected files can enrich the workflow prompt.
+                </p>
+
+                {uploadError && <p className="text-[10px] text-red-400">{uploadError}</p>}
+
+                {uploadedDocuments.length > 0 && (
+                  <div className="space-y-2">
+                    {uploadedDocuments.map((doc) => (
+                      <div key={doc.id} className="flex items-start justify-between gap-2 rounded-lg border border-border/60 bg-surface/60 px-3 py-2">
+                        <div className="flex min-w-0 items-start gap-2">
+                          <FileText className="mt-0.5 h-3.5 w-3.5 text-accent" />
+                          <div className="min-w-0">
+                            <p className="truncate text-[10px] font-semibold text-foreground">{doc.name}</p>
+                            <p className="text-[9px] text-muted">{doc.size}</p>
+                          </div>
+                        </div>
+                        <button type="button" onClick={() => removeDocument(doc.id)} className="text-muted transition hover:text-red-400">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <textarea
+                  value={knowledgeBase}
+                  onChange={(e) => setKnowledgeBase(e.target.value)}
+                  placeholder="Paste policy snippets, FAQs, onboarding notes, or product context…"
+                  className="min-h-25 w-full rounded-lg border border-border bg-surface px-3 py-2 text-[11px] text-foreground placeholder:text-muted/50 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/30 resize-none"
+                  disabled={!knowledgeBaseEnabled}
+                />
+              </Card>
+
               <div className="rounded-xl border border-border/40 bg-surface/20 p-4 space-y-2">
                 <p className="text-[10px] font-bold text-muted uppercase tracking-wider flex items-center gap-1.5">
                   <Info className="h-3 w-3" /> How it works
@@ -412,7 +515,7 @@ export default function CreateAgentPage() {
                 <ul className="space-y-1.5 text-[10px] text-muted">
                   <li className="flex gap-2"><span className="text-accent font-bold">1.</span> You describe the agent goal</li>
                   <li className="flex gap-2"><span className="text-accent font-bold">2.</span> Kimi AI generates the workflow graph</li>
-                  <li className="flex gap-2"><span className="text-accent font-bold">3.</span> Add your LLM provider key (for runtime)</li>
+                  <li className="flex gap-2"><span className="text-accent font-bold">3.</span> Add knowledge-base context and runtime credentials</li>
                   <li className="flex gap-2"><span className="text-accent font-bold">4.</span> Save and open in Canvas</li>
                 </ul>
               </div>
@@ -443,7 +546,7 @@ export default function CreateAgentPage() {
 
                 {isMock && (
                   <div className="bg-yellow-500/10 border-b border-yellow-500/20 px-6 py-3 flex items-start gap-3">
-                    <AlertTriangle className="h-4 w-4 text-yellow-500 flex-shrink-0 mt-0.5" />
+                    <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0 mt-0.5" />
                     <div>
                       <p className="text-xs font-bold text-yellow-500">Using Dev-Mode Mock Workflow</p>
                       <p className="text-[10px] text-yellow-500/80 mt-0.5 leading-relaxed">
@@ -525,7 +628,7 @@ export default function CreateAgentPage() {
                   </label>
                   <textarea
                     id="agent-desc"
-                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-xs text-foreground placeholder:text-muted/50 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/30 resize-none min-h-[70px]"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-xs text-foreground placeholder:text-muted/50 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/30 resize-none min-h-17.5"
                     placeholder="Short description of what this agent does"
                     value={agentDesc}
                     onChange={(e) => setAgentDesc(e.target.value)}

@@ -17,16 +17,16 @@ export default function SignupPage() {
   const router = useRouter();
 
   const passwordRequirements = [
-    { label: "At least 12 characters", met: password.length >= 12 },
+    { label: "At least 8 characters", met: password.length >= 8 },
     { label: "One uppercase letter", met: /[A-Z]/.test(password) },
     { label: "One number", met: /\d/.test(password) },
     { label: "One special character", met: /[^A-Za-z0-9]/.test(password) },
   ];
 
   const validatePassword = () => {
-    const isStrong = password.length >= 12 && /[A-Z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password);
+    const isStrong = password.length >= 8 && /[A-Z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password);
     if (!isStrong) {
-      setError("Use a stronger password with at least 12 characters, uppercase, a number, and a special character.");
+      setError("Use a stronger password with at least 8 characters, uppercase, a number, and a special character.");
       return false;
     }
     return true;
@@ -103,7 +103,15 @@ export default function SignupPage() {
             <div className="flex items-start mt-2">
               <input id="terms" type="checkbox" required className="h-4 w-4 rounded border-border bg-surface text-accent" />
               <label htmlFor="terms" className="ml-2.5 text-[11px] text-muted">
-                I agree to the <span className="text-accent underline">Terms of Service</span> and <span className="text-accent underline">Privacy Policy</span>.
+                I agree to the{" "}
+                <Link href="/terms" className="text-accent underline">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" className="text-accent underline">
+                  Privacy Policy
+                </Link>
+                .
               </label>
             </div>
             <Button type="submit" className="w-full mt-2" isLoading={isLoading}>

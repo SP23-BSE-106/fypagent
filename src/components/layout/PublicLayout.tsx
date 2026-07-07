@@ -15,12 +15,12 @@ export const PublicLayout: React.FC<{ children: React.ReactNode }> = ({ children
       <main className="flex-grow">{children}</main>
 
       {/* Public Footer */}
-      <footer className="relative border-t border-border/80 bg-surface/30 py-12 overflow-hidden">
+      <footer className="relative w-full border-t border-border/80 bg-surface/30 py-12 overflow-hidden">
         {/* subtle accent halo */}
         <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 h-64 w-[800px] rounded-full bg-accent/10 blur-[90px]" />
         <div className="pointer-events-none absolute inset-0 opacity-[0.02] [background-image:linear-gradient(rgba(255,255,255,0.5)_1px,transparent_1px),linear-gradient(to_right,rgba(255,255,255,0.5)_1px,transparent_1px)] [background-size:60px_60px]" />
 
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="relative w-full px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="space-y-4">
               <div className="flex items-center gap-2.5">

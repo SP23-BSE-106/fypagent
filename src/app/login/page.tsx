@@ -17,12 +17,6 @@ export default function LoginPage() {
   const [error, setError] = React.useState("");
   const router = useRouter();
 
-  const passwordRequirements = [
-    { label: "At least 12 characters", met: password.length >= 12 },
-    { label: "One uppercase letter", met: /[A-Z]/.test(password) },
-    { label: "One number", met: /\d/.test(password) },
-    { label: "One special character", met: /[^A-Za-z0-9]/.test(password) },
-  ];
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,15 +65,16 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <Input label="Email Address" type="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <Input label="Password" type="password" placeholder="Enter password" value={password} onChange={(e) => setPassword(e.target.value)} required showPasswordToggle helperText="For best security, use a unique password with at least 12 characters." />
-            <div className="rounded-lg border border-border/60 bg-surface/50 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">Password guidance</p>
-              <ul className="mt-2 space-y-1 text-[11px] text-muted">
-                {passwordRequirements.map((rule) => (
-                  <li key={rule.label} className={rule.met ? "text-emerald-400" : "text-muted"}>• {rule.label}</li>
-                ))}
-              </ul>
-            </div>
+            <Input
+              label="Password"
+              type="password"
+              placeholder="Enter password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              showPasswordToggle
+              helperText="For best security, use a strong password."
+            />
             <div className="flex justify-end -mt-3">
               <Link href="/forgot-password" className="text-[11px] text-accent hover:underline font-semibold">
                 Forgot Password?

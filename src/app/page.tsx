@@ -83,7 +83,6 @@ const NodeCard = ({
   active,
   style,
 }: {
-
   label: string;
   type: string;
   active?: boolean;
@@ -120,6 +119,120 @@ const NodeCard = ({
   </motion.div>
 );
 
+const PageCursorGlow = ({
+  className,
+  children,
+}: {
+  className?: string;
+  children?: React.ReactNode;
+}) => {
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = React.useState<{ x: number; y: number; show: boolean }>({
+    x: 50,
+    y: 50,
+    show: false,
+  });
+
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const mql = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    const reduced = mql?.matches ?? false;
+
+    if (reduced) return;
+
+    const onMove = (e: MouseEvent) => {
+      const rect = el.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      setPos({ x, y, show: true });
+    };
+
+    const onLeave = () => setPos((g) => ({ ...g, show: false }));
+
+    el.addEventListener("mousemove", onMove);
+    el.addEventListener("mouseleave", onLeave);
+
+    return () => {
+      el.removeEventListener("mousemove", onMove);
+      el.removeEventListener("mouseleave", onLeave);
+    };
+  }, []);
+
+  return (
+    <div ref={containerRef} className={cn("relative", className)}>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 opacity-0 transition-opacity duration-300"
+        style={{
+          opacity: pos.show ? 1 : 0,
+          background: `radial-gradient(circle at ${pos.x}% ${pos.y}%, rgba(91,231,196,0.10), rgba(91,231,196,0.0) 55%)`,
+        }}
+      />
+      {children}
+    </div>
+  );
+};
+
+// ─── Pricing tier card with cursor-follow glow ────────────────────────────────
+const PricingTierCard = ({
+  tier,
+  children,
+}: {
+  tier: {
+    name: string;
+    price: string;
+    highlight: boolean;
+    features: string[];
+  };
+  children: React.ReactNode;
+}) => {
+  const ref = React.useRef<HTMLDivElement | null>(null);
+  const [glow, setGlow] = React.useState<{ x: number; y: number; show: boolean }>(
+    { x: 50, y: 50, show: false }
+  );
+
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        "group relative flex flex-col rounded-2xl border p-7 h-full transition-all duration-300 overflow-hidden",
+        tier.highlight
+          ? "border-accent/40 bg-gradient-to-b from-accent/5 to-transparent shadow-[0_0_40px_-10px_rgba(91,231,196,0.2)] scale-[1.02]"
+          : "border-white/8 bg-[#0d1520]/60"
+      )}
+      onMouseMove={(e) => {
+        const el = ref.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        setGlow({ x, y, show: true });
+      }}
+      onMouseLeave={() => setGlow((g) => ({ ...g, show: false }))}
+    >
+      {/* cursor-follow glow */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200"
+        style={{
+          opacity: glow.show ? 1 : 0,
+          background: `radial-gradient(circle at ${glow.x}% ${glow.y}%, rgba(91,231,196,0.35), rgba(91,231,196,0.0) 60%)`,
+        }}
+      />
+
+      {tier.highlight && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent px-3 py-1 text-[9px] font-black uppercase tracking-widest text-[#060b10]">
+          Most Popular
+        </div>
+      )}
+
+      {children}
+    </div>
+  );
+};
+
 // ─── DATA FLOWS (SVG connector lines between nodes) ──────────────────────────
 const FlowLine = ({
   x1,
@@ -149,12 +262,7 @@ const FlowLine = ({
 );
 
 export default function LandingPage() {
-  const rootRef = React.useRef<HTMLDivElement | null>(null);
-
-  const { scrollYProgress } = useScroll({
-    target: rootRef,
-    offset: ["start start", "end start"],
-  });
+  const { scrollYProgress } = useScroll();
 
   const heroY = useTransform(scrollYProgress, [0, 0.18], [0, 120]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.16], [1, 0]);
@@ -244,8 +352,9 @@ export default function LandingPage() {
 
   return (
     <PublicLayout>
-      <div ref={rootRef} className="relative">
-        {/* Full-landing 3D background so the look stays consistent */}
+      <PageCursorGlow className="relative">
+        <div className="relative">
+          {/* Full-landing 3D background so the look stays consistent */}
         <div className="pointer-events-none absolute inset-0 -z-10">
           <ThreeBackgroundSafe className="absolute inset-0 opacity-100" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_40%_10%,rgba(91,231,196,0.10),transparent_55%),radial-gradient(circle_at_90%_40%,rgba(91,231,196,0.06),transparent_45%),linear-gradient(to_bottom,rgba(11,15,20,0.0),rgba(11,15,20,0.75)_70%,rgba(11,15,20,1))]" />
@@ -329,16 +438,34 @@ export default function LandingPage() {
                 className="flex flex-wrap items-center gap-4"
               >
                 <Link href="/signup">
-                  <button className="group inline-flex h-12 items-center gap-2.5 rounded-full bg-accent px-7 text-sm font-bold text-[#060b10] shadow-[0_0_30px_rgba(91,231,196,0.35)] transition-all duration-300 hover:shadow-[0_0_50px_rgba(91,231,196,0.6)] hover:scale-[1.03] active:scale-[0.97]">
+                  <button className="group inline-flex h-12 items-center gap-2.5 rounded-full bg-accent px-7 text-sm font-bold text-[#060b10] shadow-[0_0_30px_rgba(91,231,196,0.35)] transition-all duration-300 hover:shadow-[0_0_50px_rgba(91,231,196,0.6)] hover:scale-[1.03] active:scale-[0.97] relative overflow-hidden">
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute -left-10 top-0 h-full w-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                      style={{
+                        background:
+                          "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0) 100%)",
+                        transform: "skewX(-18deg)",
+                      }}
+                    />
                     Start Building Free
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1 relative z-10" />
                   </button>
                 </Link>
 
                 <Link href="/workflow-builder">
-                  <button className="inline-flex h-12 items-center gap-2 rounded-full border border-white/12 bg-white/4 px-7 text-sm font-semibold text-white/75 transition-all duration-300 hover:border-white/25 hover:bg-white/8 hover:text-white">
-                    <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-                    Live Demo
+                  <button className="inline-flex h-12 items-center gap-2 rounded-full border border-white/12 bg-white/4 px-7 text-sm font-semibold text-white/75 transition-all duration-300 hover:border-white/25 hover:bg-white/8 hover:text-white relative overflow-hidden group">
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute -left-10 top-0 h-full w-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                      style={{
+                        background:
+                          "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(91,231,196,0.55) 45%, rgba(255,255,255,0) 100%)",
+                        transform: "skewX(-18deg)",
+                      }}
+                    />
+                    <span className="h-2 w-2 rounded-full bg-accent animate-pulse relative z-10" />
+                    <span className="relative z-10">Live Demo</span>
                   </button>
                 </Link>
               </motion.div>
@@ -631,52 +758,55 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {pricing.map((tier) => (
                 <FadeUp key={tier.name} delay={0.1}>
-                  <div
-                    className={cn(
-                      "relative flex flex-col rounded-2xl border p-7 h-full transition-all duration-300",
-                      tier.highlight
-                        ? "border-accent/40 bg-gradient-to-b from-accent/5 to-transparent shadow-[0_0_40px_-10px_rgba(91,231,196,0.2)] scale-[1.02]"
-                        : "border-white/8 bg-[#0d1520]/60"
-                    )}
-                  >
-                    {tier.highlight && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent px-3 py-1 text-[9px] font-black uppercase tracking-widest text-[#060b10]">
-                        Most Popular
-                      </div>
-                    )}
-
-                    <div className="mb-6">
+                  <PricingTierCard tier={tier}>
+                    <div className="mb-6 relative z-10">
                       <h3 className="text-sm font-bold text-white/70 uppercase tracking-widest mb-4">
                         {tier.name}
                       </h3>
                       <div className="flex items-baseline gap-1">
                         <span className="text-4xl font-black text-white">{tier.price}</span>
-                        {tier.price !== "Custom" && <span className="text-white/30 text-sm">/mo</span>}
+                        {tier.price !== "Custom" && (
+                          <span className="text-white/30 text-sm">/mo</span>
+                        )}
                       </div>
                     </div>
 
-                    <ul className="space-y-3 flex-1">
+                    <ul className="space-y-3 flex-1 relative z-10">
                       {tier.features.map((f) => (
-                        <li key={f} className="flex items-center gap-2.5 text-sm text-white/55">
+                        <li
+                          key={f}
+                          className="flex items-center gap-2.5 text-sm text-white/55"
+                        >
                           <Check className="h-3.5 w-3.5 text-accent flex-shrink-0" />
                           {f}
                         </li>
                       ))}
                     </ul>
 
-                    <Link href="/signup" className="mt-8 block">
+                    <Link href="/signup" className="mt-8 block relative z-10">
                       <button
                         className={cn(
-                          "w-full rounded-xl py-3 text-sm font-bold transition-all duration-200",
+                          "w-full rounded-xl py-3 text-sm font-bold transition-all duration-200 relative overflow-hidden group",
                           tier.highlight
                             ? "bg-accent text-[#060b10] shadow-[0_0_20px_rgba(91,231,196,0.3)] hover:shadow-[0_0_35px_rgba(91,231,196,0.45)]"
                             : "border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
                         )}
                       >
-                        {tier.price === "Custom" ? "Contact Sales" : "Get Started"}
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute -left-10 top-0 h-full w-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                          style={{
+                            background:
+                              "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0) 100%)",
+                            transform: "skewX(-18deg)",
+                          }}
+                        />
+                        <span className="relative z-10">
+                          {tier.price === "Custom" ? "Contact Sales" : "Get Started"}
+                        </span>
                       </button>
                     </Link>
-                  </div>
+                  </PricingTierCard>
                 </FadeUp>
               ))}
             </div>
@@ -702,15 +832,35 @@ export default function LandingPage() {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href="/signup">
-                <button className="inline-flex h-13 items-center gap-2.5 rounded-full bg-accent px-8 text-sm font-bold text-[#060b10] shadow-[0_0_30px_rgba(91,231,196,0.35)] transition-all duration-300 hover:shadow-[0_0_50px_rgba(91,231,196,0.55)] hover:scale-[1.03] active:scale-[0.97]">
-                  Start for Free{" "}
-                  <ArrowRight className="h-4 w-4" />
+                <button className="inline-flex h-13 items-center gap-2.5 rounded-full bg-accent px-8 text-sm font-bold text-[#060b10] shadow-[0_0_30px_rgba(91,231,196,0.35)] transition-all duration-300 hover:shadow-[0_0_50px_rgba(91,231,196,0.55)] hover:scale-[1.03] active:scale-[0.97] relative overflow-hidden group">
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute -left-10 top-0 h-full w-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    style={{
+                      background:
+                        "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0) 100%)",
+                      transform: "skewX(-18deg)",
+                    }}
+                  />
+                  <span className="relative z-10">
+                    Start for Free{" "}
+                    <ArrowRight className="h-4 w-4 relative z-10" />
+                  </span>
                 </button>
               </Link>
 
               <Link href="/docs">
-                <button className="inline-flex h-13 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-8 text-sm font-semibold text-white/70 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:text-white">
-                  Read the Docs
+                <button className="inline-flex h-13 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-8 text-sm font-semibold text-white/70 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:text-white relative overflow-hidden group">
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute -left-10 top-0 h-full w-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    style={{
+                      background:
+                        "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(91,231,196,0.55) 45%, rgba(255,255,255,0) 100%)",
+                      transform: "skewX(-18deg)",
+                    }}
+                  />
+                  <span className="relative z-10">Read the Docs</span>
                 </button>
               </Link>
             </div>
@@ -723,7 +873,8 @@ export default function LandingPage() {
             100% { transform: translateX(-50%); }
           }
         `}</style>
-      </div>
+        </div>
+      </PageCursorGlow>
     </PublicLayout>
   );
 }

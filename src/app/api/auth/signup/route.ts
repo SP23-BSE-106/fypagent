@@ -6,8 +6,10 @@ import { rateLimit } from '@/lib/rateLimit'
 import { signJwt, setSessionToken } from '@/lib/auth/jwt'
 
 function isStrongPassword(password: string) {
-  return password.length >= 12 && /[A-Z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password)
+  // Requirement: 8+ chars, at least 1 uppercase, 1 number, and 1 special character
+  return password.length >= 8 && /[A-Z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password)
 }
+
 
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as {
@@ -25,8 +27,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing email or password' }, { status: 400 })
   }
   if (!isStrongPassword(password)) {
-    return NextResponse.json({ error: 'Password must be at least 12 characters and include an uppercase letter, a number, and a special character' }, { status: 400 })
+    return NextResponse.json(
+      {
+        error: 'Password must be at least 8 characters and include an uppercase letter, a number, and a special character',
+      },
+      { status: 400 },
+    )
   }
+
+
 
   const rl = rateLimit(`auth:signup:${email}`, { windowMs: 60_000, max: 5 })
   if (!rl.ok) {

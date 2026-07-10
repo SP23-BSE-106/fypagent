@@ -4,7 +4,8 @@ import crypto from 'crypto'
 
 import { getDb } from '@/lib/mongo/mongo'
 import { rateLimit } from '@/lib/rateLimit'
-import { signJwt, setSessionToken } from '@/lib/auth/jwt'
+
+
 import { sendEmail } from '@/utils/mailer'
 
 function isStrongPassword(password: string) {
@@ -68,26 +69,20 @@ export async function POST(request: NextRequest) {
   const verificationToken = crypto.randomBytes(32).toString('hex')
   const verificationTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
 
-  const result = await users.insertOne({
+  // IMPORTANT: do not create a real user until email is verified.
+  // Store pending signup data in a separate collection.
+  const pendingUsers = db.collection('email_verifications')
+
+  await pendingUsers.insertOne({
     email,
     passwordHash,
     fullName: fullName || undefined,
     createdAt: new Date(),
 
-    emailVerified: false,
     verificationToken,
     verificationTokenExpiresAt,
   })
 
-  const newUserId = String(result.insertedId)
-
-  // Keep current behavior: create a session for the user immediately,
-  // but block login usage until email is verified.
-  const jwt = signJwt(
-    { sub: newUserId, email, fullName: fullName || undefined },
-    60 * 60 * 24 * 7,
-  )
-  await setSessionToken(jwt)
 
   // Send verification email. If mail fails, don't fail signup.
   const origin = getAppOrigin(request)
@@ -118,6 +113,7 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ success: true, emailVerificationRequired: true })
+
 }
 
 

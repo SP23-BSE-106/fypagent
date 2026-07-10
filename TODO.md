@@ -1,12 +1,6 @@
-# TODO
-
-## Completed
-- (none yet)
-
-## Next
-- [x] Update `src/app/dashboard/templates/page.tsx` to include 20 diverse templates
-- [x] Add filtering UI: category dropdown, verified-only toggle, minimum rating filter
-- [x] Combine filters with existing search input
-- [ ] Run `npm run lint` and `npm run build`
-
+- [ ] Update signup flow to not insert into `users` until email verified.
+- [ ] Create a pending collection (e.g., `email_verifications`) to store signup data + verification token.
+- [ ] Update verify-email route to: validate token in pending collection, then insert into `users`, then delete pending record.
+- [ ] Remove immediate session creation from signup endpoint (so no cookie/JWT until verified).
+- [ ] Validate TypeScript compile and basic runtime behavior (signup/verify/login).
 

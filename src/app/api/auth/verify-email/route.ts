@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo/mongo'
 
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const token = (searchParams.get('token') || '').trim()
@@ -10,14 +11,16 @@ export async function GET(request: NextRequest) {
   }
 
   const db = await getDb()
-  const users = db.collection('users')
 
-  const user = await users.findOne<{
+  // Read pending signup record (do not create `users` until verified)
+  const pendingUsers = db.collection('email_verifications')
+  const user = await pendingUsers.findOne<{
     _id: string
     email: string
-    emailVerified?: boolean
-    verificationToken?: string
+    passwordHash: string
+    fullName?: string
     verificationTokenExpiresAt?: Date
+    verificationToken?: string
   }>({ verificationToken: token })
 
   if (!user) {
@@ -28,14 +31,24 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Token expired' }, { status: 400 })
   }
 
-  await users.updateOne(
-    ({ _id: user._id } as any),
-    {
-      $set: { emailVerified: true },
-      $unset: { verificationToken: '', verificationTokenExpiresAt: '' },
-    },
-  )
+  // Create the real user now
+  const users = db.collection('users')
+  await users.insertOne({
+    email: user.email,
+    passwordHash: user.passwordHash,
+    fullName: user.fullName || undefined,
+    createdAt: new Date(),
+    emailVerified: true,
+    // extra fields from pending record are not needed in `users`
+  })
+
+  // Cleanup pending record
+  // `pendingUsers` is untyped; use token/email to avoid ObjectId typing issues.
+  await pendingUsers.deleteOne({ verificationToken: token })
+
 
   return NextResponse.redirect(new URL('/login?verified=1', request.url))
 }
+
+
 

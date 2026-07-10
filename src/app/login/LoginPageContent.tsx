@@ -24,34 +24,43 @@ export default function LoginPageContent() {
     setError("");
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ email, password }),
-      })
+      });
 
-      const data = (await res.json().catch(() => ({}))) as { error?: string; success?: boolean }
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        success?: boolean;
+      };
 
       if (!res.ok) {
-        setError(data.error || 'Login failed')
-        setIsLoading(false)
-        return
+        setError(data.error || "Login failed");
+        setIsLoading(false);
+        return;
       }
 
-      router.push('/dashboard')
+      router.push("/dashboard");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-      setIsLoading(false)
+      setError(err instanceof Error ? err.message : "An error occurred");
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex h-screen w-screen bg-[#0B0F14] text-foreground select-none overflow-hidden">
+<div className="min-h-screen w-screen flex bg-[#0B0F14] text-foreground select-none overflow-x-hidden overflow-y-auto">
       <div className="flex-1 flex flex-col justify-center px-8 sm:px-16 md:px-24 bg-[#0B0F14] z-10 border-r border-border/40">
         <div className="mx-auto w-full max-w-sm space-y-8">
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2.5">
-              <Image src="/logo1.png" alt="AgentFlow" width={40} height={40} className="h-10 w-10 rounded-lg overflow-hidden" />
+              <Image
+                src="/logo1.png"
+                alt="AgentFlow"
+                width={40}
+                height={40}
+                className="h-10 w-10 rounded-lg overflow-hidden"
+              />
               <span className="text-base font-extrabold tracking-tight">AgentFlow</span>
             </Link>
           </div>
@@ -61,7 +70,12 @@ export default function LoginPageContent() {
             <p className="text-xs text-muted">Log in to manage your agent orchestration workspace.</p>
           </div>
 
-          {error && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">{error}</div>}
+          {error && (
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs" role="alert">
+              {error}
+            </div>
+          )}
+
           {(isVerified || isReset) && (
             <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs">
               {isReset
@@ -71,7 +85,14 @@ export default function LoginPageContent() {
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
-            <Input label="Email Address" type="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input
+              label="Email Address"
+              type="email"
+              placeholder="name@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
             <Input
               label="Password"
               type="password"
@@ -93,7 +114,10 @@ export default function LoginPageContent() {
           </form>
 
           <p className="text-xs text-muted text-center">
-            Do not have an account? <Link href="/signup" className="text-accent hover:underline font-semibold">Create one now</Link>
+            Do not have an account?{" "}
+            <Link href="/signup" className="text-accent hover:underline font-semibold">
+              Create one now
+            </Link>
           </p>
         </div>
       </div>
@@ -107,7 +131,9 @@ export default function LoginPageContent() {
             <Cpu className="h-5 w-5" />
           </div>
           <blockquote className="space-y-4">
-            <p className="font-h2 text-foreground font-semibold leading-relaxed">AgentFlow transformed our workflow structures.</p>
+            <p className="font-h2 text-foreground font-semibold leading-relaxed">
+              AgentFlow transformed our workflow structures.
+            </p>
             <footer className="text-xs text-muted">
               <cite className="font-bold text-foreground not-italic">Marcus Vance</cite> - Lead AI Integration at Vercel
             </footer>
@@ -117,3 +143,4 @@ export default function LoginPageContent() {
     </div>
   );
 }
+

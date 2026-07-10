@@ -24,7 +24,10 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email }),
       });
 
-      const data = (await res.json().catch(() => ({}))) as { error?: string; success?: boolean };
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        success?: boolean;
+      };
 
       if (!res.ok) {
         setError(data.error || "Unable to process password reset request.");
@@ -41,7 +44,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-[#0B0F14] text-foreground select-none items-center justify-center p-4">
+<div className="min-h-screen w-screen flex flex-col bg-[#0B0F14] text-foreground select-none items-center justify-center p-4 overflow-x-hidden overflow-y-auto">
       <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_center,var(--accent)_1px,transparent_1px)] bg-size-[24px_24px]" />
 
       <div className="w-full max-w-md border border-border bg-surface rounded-xl p-8 shadow-2xl relative z-10">
@@ -60,7 +63,11 @@ export default function ForgotPasswordPage() {
           </p>
         </div>
 
-        {error && <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">{error}</div>}
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400" role="alert">
+            {error}
+          </div>
+        )}
 
         {!isSubmitted ? (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -91,3 +98,4 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
+

@@ -197,9 +197,9 @@ const PricingTierCard = ({
     <div
       ref={ref}
       className={cn(
-        "group relative flex flex-col rounded-2xl border p-7 h-full transition-all duration-300 overflow-hidden",
+        "group relative flex flex-col h-full rounded-2xl border p-7 transition-all duration-300 overflow-hidden",
         tier.highlight
-          ? "border-accent/40 bg-gradient-to-b from-accent/5 to-transparent shadow-[0_0_40px_-10px_rgba(91,231,196,0.2)] scale-[1.02]"
+          ? "border-accent/40 bg-gradient-to-b from-accent/5 to-transparent shadow-[0_0_40px_-10px_rgba(91,231,196,0.2)]"
           : "border-white/8 bg-[#0d1520]/60"
       )}
       onMouseMove={(e) => {
@@ -228,7 +228,9 @@ const PricingTierCard = ({
         </div>
       )}
 
-      {children}
+      <div className="flex flex-col h-full">
+        {children}
+      </div>
     </div>
   );
 };
@@ -755,7 +757,7 @@ export default function LandingPage() {
               </h2>
             </FadeUp>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
               {pricing.map((tier) => (
                 <FadeUp key={tier.name} delay={0.1}>
                   <PricingTierCard tier={tier}>
@@ -771,7 +773,7 @@ export default function LandingPage() {
                       </div>
                     </div>
 
-                    <ul className="space-y-3 flex-1 relative z-10">
+                    <ul className="space-y-3 flex-1 relative z-10 transition-all duration-300 group-hover:translate-y-[-4px] group-hover:opacity-100" >
                       {tier.features.map((f) => (
                         <li
                           key={f}

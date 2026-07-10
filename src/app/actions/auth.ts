@@ -30,9 +30,10 @@ export async function login(email: string, password: string) {
   const ok = await bcrypt.compare(password, user.passwordHash)
   if (!ok) return { error: 'Invalid credentials' }
 
+  // 1 hour session
   const jwt = signJwt(
     { sub: String(user._id), email: user.email, fullName: user.fullName },
-    60 * 60 * 24 * 7,
+    60 * 60,
   )
   await setSessionToken(jwt)
 
@@ -63,9 +64,10 @@ export async function signup(email: string, password: string, fullName: string) 
 
   const insertedId = String(result.insertedId)
 
+  // 1 hour session
   const jwt = signJwt(
     { sub: insertedId, email: normalizedEmail, fullName: fullName.trim() || undefined },
-    60 * 60 * 24 * 7,
+    60 * 60,
   )
   await setSessionToken(jwt)
 

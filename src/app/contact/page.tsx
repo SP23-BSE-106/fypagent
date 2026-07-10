@@ -16,18 +16,40 @@ export default function ContactPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSent, setIsSent] = React.useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
+
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name, email, subject, message }),
+      });
+
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error || "Failed to send message");
+      }
+
       setIsSent(true);
       setName("");
       setEmail("");
       setSubject("");
       setMessage("");
+
       setTimeout(() => setIsSent(false), 3000);
-    }, 1200);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to send message";
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -90,6 +112,12 @@ export default function ContactPage() {
                   </>
                 )}
               </Button>
+
+              {error && (
+                <p className="text-xs text-red-400 font-medium text-center" role="alert">
+                  {error}
+                </p>
+              )}
             </form>
           </Card>
 

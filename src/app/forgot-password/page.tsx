@@ -10,23 +10,41 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = React.useState("");
   const [isSubmitted, setIsSubmitted] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    setError("");
+
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as { error?: string; success?: boolean };
+
+      if (!res.ok) {
+        setError(data.error || "Unable to process password reset request.");
+        setIsLoading(false);
+        return;
+      }
+
       setIsSubmitted(true);
-    }, 900);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred while requesting a reset.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="flex h-screen w-screen bg-[#0B0F14] text-foreground select-none items-center justify-center p-4">
-      {/* Background decoration */}
       <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_center,var(--accent)_1px,transparent_1px)] bg-size-[24px_24px]" />
-      
+
       <div className="w-full max-w-md border border-border bg-surface rounded-xl p-8 shadow-2xl relative z-10">
-        {/* Back Link */}
         <Link
           href="/login"
           className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-foreground transition-colors mb-6 font-semibold"
@@ -35,13 +53,14 @@ export default function ForgotPasswordPage() {
           Back to login
         </Link>
 
-        {/* Header */}
         <div className="space-y-2 mb-6">
           <h2 className="font-h2 font-bold text-foreground">Reset Password</h2>
           <p className="text-xs text-muted">
-            For security, this workspace does not expose an unsafe password-reset flow. Enter your email and we will guide the next step securely.
+            Enter your email address and we will send a secure reset link to help you regain access.
           </p>
         </div>
+
+        {error && <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">{error}</div>}
 
         {!isSubmitted ? (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -54,7 +73,7 @@ export default function ForgotPasswordPage() {
               required
             />
             <Button type="submit" className="w-full mt-2" isLoading={isLoading}>
-              Request Recovery Help
+              Send Reset Link
             </Button>
           </form>
         ) : (
@@ -64,7 +83,7 @@ export default function ForgotPasswordPage() {
             </div>
             <h4 className="text-xs font-bold uppercase text-accent tracking-wide">Secure Recovery</h4>
             <p className="text-xs text-muted leading-relaxed">
-              If <strong className="text-foreground">{email}</strong> belongs to a registered workspace, our team will review the request and help you regain access safely. Avoid sharing your password or reset tokens.
+              If <strong className="text-foreground">{email}</strong> belongs to a registered account, a password reset link has been sent to that email address.
             </p>
           </div>
         )}

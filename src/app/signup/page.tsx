@@ -58,7 +58,11 @@ export default function SignupPage() {
         return
       }
 
-      router.push('/dashboard')
+      // Signup succeeds but user must verify email before dashboard/login usage.
+      setSuccess('Signup successful! Check your email to verify your account.')
+      setError('')
+      setIsLoading(false)
+      return
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An error occurred')
       setIsLoading(false)

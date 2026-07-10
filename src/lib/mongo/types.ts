@@ -6,5 +6,15 @@ export type User = {
   passwordHash: string
   fullName?: string
   createdAt: Date
+
+  // Email verification
+  emailVerified: boolean
+  verificationToken?: string
+  verificationTokenExpiresAt?: Date
+
+  // Password reset
+  passwordResetToken?: string
+  passwordResetTokenExpiresAt?: Date
 }
+
 

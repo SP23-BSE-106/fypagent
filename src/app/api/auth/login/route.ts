@@ -29,9 +29,15 @@ export async function POST(request: NextRequest) {
   const db = await getDb()
   const users = db.collection('users')
 
-  const user = await users.findOne<{ _id: string; email: string; passwordHash: string; fullName?: string }>(
-    { email },
-  )
+  const user = await users.findOne<{
+    _id: string
+    email: string
+    passwordHash: string
+    fullName?: string
+    emailVerified?: boolean
+  }>({ email })
+
+
 
   if (!user) {
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
@@ -42,6 +48,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
   }
 
+  if (!user.emailVerified) {
+    return NextResponse.json({ error: 'Email verification required' }, { status: 403 })
+  }
+
   const jwt = signJwt(
     { sub: user._id, email: user.email, fullName: user.fullName },
     60 * 60 * 24 * 7,
@@ -50,4 +60,5 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ success: true })
 }
+
 

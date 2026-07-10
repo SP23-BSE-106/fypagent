@@ -39,7 +39,8 @@ function getMailerConfig() {
       user,
       pass,
     },
-    from: SMTP_FROM || user,
+    from: process.env.SMTP_NO_REPLY || process.env.NO_REPLY_EMAIL || SMTP_FROM || user, 
+    replyTo: process.env.SMTP_NO_REPLY || process.env.NO_REPLY_EMAIL || SMTP_FROM || user,
   }
 }
 

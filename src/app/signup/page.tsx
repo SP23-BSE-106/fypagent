@@ -70,7 +70,7 @@ export default function SignupPage() {
   };
 
   return (
-      <div className="min-h-screen w-full bg-[#0B0F14] text-foreground select-none overflow-x-hidden">
+      <div className="flex h-screen w-screen bg-[#0B0F14] text-foreground select-none overflow-hidden">
       <div className="flex-1 flex flex-col justify-center px-8 sm:px-16 md:px-24 bg-[#0B0F14] z-10 border-r border-border/40">
         <div className="mx-auto w-full max-w-sm space-y-7">
           <div className="flex items-center gap-3">

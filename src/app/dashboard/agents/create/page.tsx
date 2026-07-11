@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Sparkles, Send, CheckCircle, ArrowRight, ArrowLeft,
   Cpu, MessageSquare, AlertTriangle, Loader2, Key,
@@ -128,7 +127,6 @@ function NodeCard({ node, index }: { node: WorkflowNode; index: number }) {
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 export default function CreateAgentPage() {
-  const router = useRouter();
 
   // ── Form state ─────────────────────────────────────────────────────────────
   const [step, setStep] = React.useState<Step>(1);
@@ -152,6 +150,7 @@ export default function CreateAgentPage() {
   const [generating, setGenerating] = React.useState(false);
   const [generateError, setGenerateError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
   const [savedAgent, setSavedAgent] = React.useState<{ _id: string; name: string } | null>(null);
   const [isMock, setIsMock] = React.useState(false);
 
@@ -261,15 +260,12 @@ export default function CreateAgentPage() {
       clearLog();
       setIsMock(!!data._mock);
       setWorkflow(data.workflow as WorkflowGraph);
-      if (typeof window !== "undefined") {
-        window.sessionStorage.setItem("pendingWorkflow", JSON.stringify(data.workflow));
-      }
       // Pre-fill agent name from workflow name if provided
       if (data.workflow?.name) {
         setAgentName(data.workflow.name);
         setAgentDesc(data.workflow.description ?? "");
       }
-      router.replace(`/workflow-builder?fromCreate=1&workflow=${encodeURIComponent(JSON.stringify(data.workflow))}`);
+      setStep(2);
     } catch (err) {
       clearLog();
       setGenerateError(err instanceof Error ? err.message : "An unexpected error occurred.");
@@ -281,8 +277,9 @@ export default function CreateAgentPage() {
   // ── Step 3 → Save ──────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!workflow || saving) return;
+    setSaveError(null);
     if (!agentName.trim()) {
-      alert("Please enter a name for the agent.");
+      setSaveError("Please enter a name for the agent.");
       return;
     }
 
@@ -308,7 +305,7 @@ export default function CreateAgentPage() {
       setSavedAgent({ _id: data._id, name: data.name });
       setStep(3);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to save agent.");
+      setSaveError(err instanceof Error ? err.message : "Failed to save agent.");
     } finally {
       setSaving(false);
     }
@@ -349,9 +346,13 @@ export default function CreateAgentPage() {
                       placeholder="e.g., Build an agent that monitors production database logs, searches vector storage for known error resolutions, drafts troubleshooting steps, and logs support tickets automatically…"
                       className="flex min-h-40 w-full rounded-lg border border-border bg-surface px-3.5 py-3 text-sm text-foreground placeholder:text-muted/50 transition-all focus:border-accent/60 focus:outline-none focus:ring-1 focus:ring-accent/30 resize-none"
                       value={prompt}
-                      onChange={(e) => setPrompt(e.target.value)}
+                      onChange={(e) => setPrompt(e.target.value.slice(0, 2000))}
                       disabled={generating}
+                      maxLength={2000}
                     />
+                    <div className="text-right text-[10px] text-muted">
+                      {prompt.length}/2000
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between flex-wrap gap-3">
@@ -524,7 +525,8 @@ export default function CreateAgentPage() {
         )}
 
         {/* ─── STEP 2 — Review & Configure ─────────────────────────────────── */}
-        {step === 2 && workflow && (
+        {step === 2 && (
+          workflow ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
             {/* Workflow preview */}
             <div className="lg:col-span-2 space-y-5">
@@ -589,7 +591,7 @@ export default function CreateAgentPage() {
 
               {/* Action buttons */}
               <div className="flex items-center gap-3 flex-wrap">
-                <Button variant="secondary" onClick={() => { setStep(1); setWorkflow(null); }}>
+                <Button variant="secondary" onClick={() => { setStep(1); setWorkflow(null); setGenerateError(null); setSaveError(null); }}>
                   <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
                   Back
                 </Button>
@@ -598,6 +600,12 @@ export default function CreateAgentPage() {
                   Save Agent
                 </Button>
               </div>
+              {saveError && (
+                <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-3">
+                  <AlertTriangle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-400">{saveError}</p>
+                </div>
+              )}
             </div>
 
             {/* Config panel */}
@@ -619,6 +627,7 @@ export default function CreateAgentPage() {
                     placeholder="My Support Agent"
                     value={agentName}
                     onChange={(e) => setAgentName(e.target.value)}
+                    autoComplete="off"
                   />
                 </div>
 
@@ -646,6 +655,7 @@ export default function CreateAgentPage() {
                     placeholder="support, email, automation"
                     value={tags}
                     onChange={(e) => setTags(e.target.value)}
+                    autoComplete="off"
                   />
                 </div>
               </Card>
@@ -698,6 +708,7 @@ export default function CreateAgentPage() {
                       placeholder={PROVIDERS.find((p) => p.id === provider)?.placeholder ?? "..."}
                       value={apiKey}
                       onChange={(e) => setApiKey(e.target.value)}
+                      autoComplete="new-password"
                     />
                     <button
                       type="button"
@@ -711,6 +722,16 @@ export default function CreateAgentPage() {
               </Card>
             </div>
           </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
+              <AlertTriangle className="h-8 w-8 text-yellow-400" />
+              <p className="text-sm font-bold text-foreground">No workflow generated</p>
+              <p className="text-xs text-muted">Something went wrong. Go back and try generating again.</p>
+              <Button variant="secondary" onClick={() => { setStep(1); setGenerateError(null); }}>
+                <ArrowLeft className="h-3.5 w-3.5 mr-1.5" /> Go Back
+              </Button>
+            </div>
+          )
         )}
 
         {/* ─── STEP 3 — Saved ──────────────────────────────────────────────── */}

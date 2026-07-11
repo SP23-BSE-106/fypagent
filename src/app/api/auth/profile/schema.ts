@@ -8,4 +8,3 @@ export type ManageProfileProfile = {
   emailVerified?: boolean
 }
 
-n

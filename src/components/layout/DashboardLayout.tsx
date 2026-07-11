@@ -58,6 +58,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
 
 
 
+
   const getUserInitials = () => {
     if (!user) return "??";
     const name = user.fullName || user.email || "";

@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { LayoutDashboard, GitBranch, Terminal, CloudLightning, BarChart3, Sliders, ChevronLeft, ChevronRight, BookOpen, Boxes, LogOut, CreditCard, ListChecks, Plus } from "lucide-react";
+import { LayoutDashboard, GitBranch, Terminal, CloudLightning, BarChart3, Sliders, ChevronLeft, ChevronRight, BookOpen, Boxes, LogOut, CreditCard, ListChecks, Plus, User } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 
 interface SidebarProps { className?: string; }
@@ -47,6 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
     { name: "Templates", href: "/dashboard/templates", icon: Boxes },
     { name: "Documentation", href: "/docs", icon: BookOpen },
+    { name: "Profile", href: "/dashboard/profile", icon: User },
     { name: "Settings", href: "/dashboard/settings", icon: Sliders },
     { name: "Billing", href: "/dashboard/payment", icon: CreditCard },
   ];
@@ -76,6 +78,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       <nav className="flex-1 space-y-1.5 px-3 py-4 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
+
+          // Avoid accidental redirects: keep nav active logic purely UI.
+          // (This component relies on DashboardLayout for auth redirect.)
           const Icon = item.icon;
           return (
             <Link key={item.name} href={item.href} className={cn("group flex items-center rounded-lg px-3.5 py-2.5 text-xs font-semibold tracking-wide transition-all relative", isActive ? "text-accent bg-accent-muted border border-accent/25" : "text-muted hover:bg-surface-light/40 hover:text-foreground border border-transparent")}>

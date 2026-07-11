@@ -7,6 +7,13 @@ export type User = {
   fullName?: string
   createdAt: Date
 
+  // Profile (UC-3)
+  avatarUrl?: string | null
+  preferences?: {
+    marketingEmails?: boolean
+    [key: string]: any
+  }
+
   // Email verification
   emailVerified: boolean
   verificationToken?: string
@@ -16,5 +23,6 @@ export type User = {
   passwordResetToken?: string
   passwordResetTokenExpiresAt?: Date
 }
+
 
 

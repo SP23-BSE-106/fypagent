@@ -56,7 +56,7 @@ export default function ResetPasswordPageContent() {
   };
 
   return (
-    <div className="min-h-screen w-screen bg-[#0B0F14] text-foreground select-none items-center justify-center p-4 overflow-x-hidden">
+   <div className="min-h-screen w-screen flex items-center justify-center bg-[#0B0F14] text-foreground select-none p-4 overflow-x-hidden relative">
       <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_center,var(--accent)_1px,transparent_1px)] bg-size-[24px_24px]" />
 
       <div className="w-full max-w-md border border-border bg-surface rounded-xl p-8 shadow-2xl relative z-10">

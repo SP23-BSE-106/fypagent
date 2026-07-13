@@ -120,9 +120,16 @@ export default function SignupPage() {
               type="text"
               placeholder="John Doe"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                const cleaned = e.target.value.replace(/[^A-Za-z\s]/g, "");
+                // collapse multiple spaces and trim start (keep natural typing)
+                const normalized = cleaned.replace(/\s{2,}/g, " ").trimStart();
+                setName(normalized);
+              }}
               required
+              helperText="Use alphabets and spaces only (e.g., John Doe)."
             />
+
             <Input
               label="Email Address"
               type="email"

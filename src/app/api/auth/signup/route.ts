@@ -38,6 +38,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing email or password' }, { status: 400 })
   }
 
+  // Full name validation: alphabets + spaces only
+  if (!fullName) {
+    return NextResponse.json({ error: 'Missing full name' }, { status: 400 })
+  }
+  if (!/^[A-Za-z\s]+$/.test(fullName)) {
+    return NextResponse.json({ error: 'Full name must contain alphabets and spaces only' }, { status: 400 })
+  }
+
+
   if (!isStrongPassword(password)) {
     return NextResponse.json(
       {

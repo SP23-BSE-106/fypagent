@@ -11,9 +11,13 @@ import { Button } from "@/components/ui/Button";
 export default function LoginPageContent() {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+  
   const router = useRouter();
+
+
   const searchParams = useSearchParams();
   const isVerified = searchParams.get("verified") === "1";
   const isReset = searchParams.get("reset") === "1";
@@ -93,6 +97,8 @@ export default function LoginPageContent() {
               onChange={(e) => setEmail(e.target.value)}
               required
             />
+
+
             <Input
               label="Password"
               type="password"
@@ -103,7 +109,9 @@ export default function LoginPageContent() {
               showPasswordToggle
               helperText="For best security, use a strong password."
             />
+
             <div className="flex justify-end -mt-3">
+
               <Link href="/forgot-password" className="text-[11px] text-accent hover:underline font-semibold">
                 Forgot Password?
               </Link>

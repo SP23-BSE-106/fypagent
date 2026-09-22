@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
+
 import * as React from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import ReactFlow, {
@@ -18,13 +20,12 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 
 import { BuilderLayout } from "@/components/layout/BuilderLayout";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Badge } from "@/components/ui/Badge";
-import { Cpu, GitBranch, Terminal, Database, MessageSquare, Plus, Trash2, Zap, Play, Sliders, Send, Bot } from "lucide-react";
+import { Cpu, GitBranch, Terminal, Database, Trash2, Zap, Sliders, Send, Bot } from "lucide-react";
 
 // Custom node styling layout matching Vercel/Linear
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomNodeComponent = ({ data, selected }: { data: any; selected: boolean }) => {
   const Icon = data.icon;
   return (
@@ -81,7 +82,9 @@ const nodeTypes = {
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapWorkflowToCanvas(workflow: any) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const typeIcons: Record<string, { type: string; icon: any }> = {
     trigger: { type: "Input", icon: Zap },
     llm: { type: "LLM Node", icon: Cpu },
@@ -91,6 +94,7 @@ function mapWorkflowToCanvas(workflow: any) {
     output: { type: "Output", icon: Terminal },
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mappedNodes: Node[] = (workflow?.nodes || []).map((n: any, i: number) => {
     const mapInfo = typeIcons[n.type] || { type: "LLM Node", icon: Cpu };
     return {
@@ -106,6 +110,7 @@ function mapWorkflowToCanvas(workflow: any) {
     };
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mappedEdges: Edge[] = (workflow?.edges || []).map((e: any) => ({
     id: e.id,
     source: e.source,
@@ -125,7 +130,7 @@ function WorkflowBuilderInner() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = React.useState<Node | null>(null);
   const [isRunning, setIsRunning] = React.useState(false);
-  const [saveBusy, setSaveBusy] = React.useState(false);
+
   const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
   const [assistantInput, setAssistantInput] = React.useState("");
   const [assistantBusy, setAssistantBusy] = React.useState(false);
@@ -140,14 +145,20 @@ function WorkflowBuilderInner() {
     "[SYSTEM] Waiting for a workflow or a prompt from Kimi Assistant...",
   ]);
 
+  // Track if workflow has been loaded from persistent storage
+  const workflowLoadedFromStorage = React.useRef(false);
+
   React.useEffect(() => {
     const workflowFromQuery = searchParams?.get("workflow");
     const workflowFromSession = typeof window !== "undefined" ? window.sessionStorage.getItem("pendingWorkflow") : null;
 
     const loadWorkflow = (workflow: any) => {
+      console.log("[LOAD] Loading workflow:", workflow);
       const { nodes: mappedNodes, edges: mappedEdges } = mapWorkflowToCanvas(workflow);
       setNodes(mappedNodes);
       setEdges(mappedEdges);
+      workflowLoadedFromStorage.current = true;
+      initialLoadDone.current = false; // Reset so auto-save will trigger after load
       setLogs((prev) => [...prev, "[SYSTEM] Loaded workflow into the canvas."]);
     };
 
@@ -157,7 +168,7 @@ function WorkflowBuilderInner() {
         loadWorkflow(parsed);
         return;
       } catch (error) {
-        console.error(error);
+        console.error("[ERROR] Failed to parse workflow from query:", error);
       }
     }
 
@@ -170,30 +181,146 @@ function WorkflowBuilderInner() {
         }
         return;
       } catch (error) {
-        console.error(error);
+        console.error("[ERROR] Failed to parse workflow from session:", error);
       }
     }
 
     if (!agentId) {
       setNodes([]);
       setEdges([]);
+      workflowLoadedFromStorage.current = false;
       return;
     }
 
-    setLogs((prev) => [...prev, "[SYSTEM] Fetching agent workflow..."]);
-    fetch(`/api/agents/${agentId}`)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const abortController = new AbortController();
+    console.log("[LOAD] Fetching agent:", agentId);
+    fetch(`/api/agents/${agentId}`, {
+      credentials: 'include',
+    })
       .then((res) => res.json())
       .then((agent) => {
+        console.log("[LOAD] Agent data:", agent);
         if (agent?.workflow) {
           loadWorkflow(agent.workflow);
           setLogs((prev) => [...prev, `[SYSTEM] Loaded workflow graph from agent: ${agent.name}`]);
+        } else {
+          console.log("[LOAD] No workflow found in agent");
+          setNodes([]);
+          setEdges([]);
+          workflowLoadedFromStorage.current = true;
         }
       })
       .catch((err) => {
-        console.error(err);
+        console.error("[ERROR] Failed to load agent workflow:", err);
         setLogs((prev) => [...prev, "[SYSTEM] Failed to load agent workflow."]);
       });
   }, [agentId, searchParams, setNodes, setEdges]);
+
+  // ── Auto-save draft every 3s after changes ───────────────────────────
+  const [autoSaveStatus, setAutoSaveStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [lastSavedTime, setLastSavedTime] = React.useState<Date | null>(null);
+  const initialLoadDone = React.useRef(false);
+  const unsavedChanges = React.useRef(false);
+
+  React.useEffect(() => {
+    // Skip the very first render (initial load / workflow fetch)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
+      console.log("[AUTO-SAVE] Initial load skipped, will save on next change");
+      return;
+    }
+
+    // Only track changes after workflow has been loaded
+    if (!workflowLoadedFromStorage.current && nodes.length === 0) {
+      console.log("[AUTO-SAVE] No nodes and workflow not loaded yet, skipping save");
+      return;
+    }
+
+    unsavedChanges.current = true;
+    console.log("[AUTO-SAVE] Unsaved changes detected:", nodes.length, "nodes");
+
+    const timer = setTimeout(async () => {
+      setAutoSaveStatus("saving");
+      console.log("[AUTO-SAVE] Starting save...", { agentId, nodeCount: nodes.length, edgeCount: edges.length });
+      try {
+        const draftName = (agentNameFromQuery || "Untitled Draft").trim() || "Untitled Draft";
+        const workflowPayload = {
+          name: draftName,
+          description: "Workflow saved from the visual builder.",
+          nodes: nodes.map((node) => ({
+            id: node.id,
+            name: node.data?.label ?? "Untitled",
+            type: node.data?.type === "Input" ? "trigger" : node.data?.type === "Output" ? "output" : node.data?.type === "RAG Node" ? "rag" : node.data?.type === "Condition" ? "condition" : node.data?.type === "API Node" ? "api" : "llm",
+            description: node.data?.description ?? "",
+          })),
+          edges: edges.map((edge) => ({
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+          })),
+        };
+
+        const endpoint = agentId ? `/api/agents/${agentId}` : "/api/agents";
+        const method = agentId ? "PATCH" : "POST";
+        const body = agentId
+          ? { workflow: workflowPayload, status: "draft", name: draftName }
+          : { name: draftName, description: "Auto-saved draft from the visual builder.", prompt: "", workflow: workflowPayload, status: "draft" };
+
+        console.log("[AUTO-SAVE] Sending to", endpoint, "with", method);
+        const res = await fetch(endpoint, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          credentials: 'include',
+        });
+
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          console.log("[AUTO-SAVE] Success! Saved agent:", data._id);
+          // Update URL with agentId if this was a new save
+          if (data?._id && !agentId && typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            params.set("agentId", data._id);
+            params.set("agentName", data.name || draftName);
+            router.replace(`${window.location.pathname}?${params.toString()}`);
+          }
+          setAutoSaveStatus("saved");
+          setLastSavedTime(new Date());
+          unsavedChanges.current = false;
+          // Reset to idle after 2s
+          setTimeout(() => setAutoSaveStatus("idle"), 2000);
+        } else {
+          const errData = await res.json().catch(() => ({ error: "Unknown" }));
+          console.error("[AUTO-SAVE] Save failed with status:", res.status, errData);
+          setAutoSaveStatus("error");
+          setTimeout(() => setAutoSaveStatus("idle"), 3000);
+        }
+      } catch (err) {
+        console.error("[AUTO-SAVE] Error:", err);
+        setAutoSaveStatus("error");
+        setTimeout(() => setAutoSaveStatus("idle"), 3000);
+      }
+    }, 3000); // 3 second debounce
+
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, edges]);
+
+  // ── Warn on unsaved changes before leaving ───────────────────────────
+  React.useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (unsavedChanges.current && autoSaveStatus !== "saved") {
+        e.preventDefault();
+        e.returnValue = "";
+        return "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [autoSaveStatus]);
 
   // Handle flow connect
   const onConnect = React.useCallback(
@@ -589,6 +716,8 @@ function WorkflowBuilderInner() {
       isRunning={isRunning}
       onSave={handleSaveDraft}
       onDeploy={() => setLogs((prev) => [...prev, "[SYSTEM] Workflow compiled and deployed to public production endpoint."])}
+      autoSaveStatus={autoSaveStatus}
+      lastSavedTime={lastSavedTime}
     >
       <div className="relative h-full w-full">
         <ReactFlow

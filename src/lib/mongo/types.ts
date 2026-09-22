@@ -21,7 +21,12 @@ export type User = {
 
   // Password reset
   passwordResetToken?: string
-  passwordResetTokenExpiresAt?: Date
+  // Subscription & 90-Day Free Trial
+  trialEndsAt?: Date
+  subscriptionPlan?: 'free_trial' | 'starter' | 'pro' | 'enterprise'
+  subscriptionStatus?: 'trialing' | 'active' | 'past_due' | 'canceled' | 'expired' | 'pending_approval'
+  stripeCustomerId?: string
+  stripeSubscriptionId?: string
 }
 
 

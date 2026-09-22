@@ -123,10 +123,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ workflow: buildMockWorkflow(prompt), _mock: true })
   }
 
-  // ── Forward to NVIDIA API (Kimi K2.6) ─────────────────────────────────
-  let inferenceRes: Response
-  try {
-    const systemPrompt = `You are an AI workflow generator. The user will give you a prompt. You must generate a workflow graph consisting of nodes and edges to fulfill the user's intent.
+  // ── Inference endpoints (HuggingFace primary, NVIDIA fallback) ─────────────────
+  const systemPrompt = `You are an AI workflow generator. The user will give you a prompt. You must generate a workflow graph consisting of nodes and edges to fulfill the user's intent.
 You MUST output ONLY valid JSON in the following format:
 {
   "workflow": {
@@ -151,31 +149,72 @@ You MUST output ONLY valid JSON in the following format:
 }
 Do not wrap your response in markdown blocks like \`\`\`json. Just output the raw JSON object.`;
 
-    inferenceRes = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer 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',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        model: "moonshotai/kimi-k2.6",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: prompt }
-        ],
-        max_tokens: 2048,
-        temperature: 0.7,
-        top_p: 1.0,
-        stream: false
-      }),
-      signal: AbortSignal.timeout(120_000),
-    })
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.warn('[generate] Inference server unreachable — using fallback workflow.', msg)
+  const endpoints = [
+    // Primary: HuggingFace Router
+    {
+      url: 'https://router.huggingface.co/v1/chat/completions',
+      key: process.env.HF_TOKEN,
+      model: 'moonshotai/Kimi-K3:together',
+      name: 'HuggingFace (Kimi K3)'
+    },
+    // Fallback: NVIDIA API
+    {
+      url: 'https://integrate.api.nvidia.com/v1/chat/completions',
+      key: process.env.NVIDIA_API_KEY,
+      model: 'moonshotai/kimi-k3',
+      name: 'NVIDIA (Kimi K3)'
+    }
+  ]
+
+  let inferenceRes: Response | null = null
+  let lastError: string = ''
+
+  for (const ep of endpoints) {
+    if (!ep.key) {
+      console.warn(`[generate] ${ep.name} API key not configured, skipping...`)
+      continue
+    }
+
+    try {
+      console.log(`[generate] Trying ${ep.name}...`)
+      inferenceRes = await fetch(ep.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${ep.key}`,
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          model: ep.model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: prompt }
+          ],
+          max_tokens: 2048,
+          temperature: 0.7,
+          top_p: 1.0,
+          stream: false
+        }),
+        signal: AbortSignal.timeout(120_000),
+      })
+
+      if (inferenceRes.ok) {
+        console.log(`[generate] ${ep.name} succeeded`)
+        break // Success, stop trying other endpoints
+      }
+
+      lastError = `${ep.name} returned ${inferenceRes.status}`
+      console.warn(`[generate] ${lastError}, trying next endpoint...`)
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err)
+      console.warn(`[generate] ${ep.name} failed: ${lastError}, trying next endpoint...`)
+    }
+  }
+
+  if (!inferenceRes || !inferenceRes.ok) {
+    console.warn('[generate] All inference endpoints failed — using fallback workflow.', lastError)
     await new Promise((r) => setTimeout(r, 1200))
-    return fallbackWorkflowResponse(prompt, msg)
+    return fallbackWorkflowResponse(prompt, lastError || 'All endpoints unavailable')
   }
 
   if (!inferenceRes.ok) {

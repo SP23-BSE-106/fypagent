@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { Bell, Search, HelpCircle } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/Sidebar";
+import { TrialBanner } from "@/components/billing/TrialBanner";
+import { ExpirationLockModal } from "@/components/billing/ExpirationLockModal";
 
 interface UserProfile {
   fullName?: string;
@@ -143,6 +145,8 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
             </div>
           </div>
         </header>
+        <TrialBanner />
+        <ExpirationLockModal />
         <main className="flex-1 overflow-y-auto p-6 bg-[linear-gradient(to_bottom,rgba(19,26,35,0.55),rgba(11,15,20,0.35))]">
           <div className="mx-auto max-w-7xl h-full relative">
             {children}

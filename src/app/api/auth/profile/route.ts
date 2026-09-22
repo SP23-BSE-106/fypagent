@@ -76,6 +76,10 @@ export async function GET(request: NextRequest) {
         avatarUrl: user.avatarUrl ?? null,
         preferences: user.preferences ?? {},
         emailVerified: user.emailVerified,
+        createdAt: user.createdAt,
+        trialEndsAt: user.trialEndsAt ?? (user.createdAt ? new Date(new Date(user.createdAt).getTime() + 90 * 24 * 60 * 60 * 1000) : null),
+        subscriptionPlan: user.subscriptionPlan ?? 'free_trial',
+        subscriptionStatus: user.subscriptionStatus ?? 'trialing',
       },
     })
   } catch {

@@ -39,7 +39,9 @@ export async function GET(request: NextRequest) {
     fullName: user.fullName || undefined,
     createdAt: new Date(),
     emailVerified: true,
-    // extra fields from pending record are not needed in `users`
+    trialEndsAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from signup
+    subscriptionPlan: 'free_trial',
+    subscriptionStatus: 'trialing',
   })
 
   // Cleanup pending record

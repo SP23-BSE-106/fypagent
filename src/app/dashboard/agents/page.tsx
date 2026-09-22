@@ -62,7 +62,9 @@ export default function AgentsPage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("/api/agents");
+        const res = await fetch("/api/agents", {
+          credentials: 'include',
+        });
         if (!res.ok) throw new Error("Failed to load agents.");
         const data = await res.json();
         setAgents(data as AgentRow[]);
@@ -80,7 +82,10 @@ export default function AgentsPage() {
     if (!confirm("Delete this agent? This cannot be undone.")) return;
     setDeleting(id);
     try {
-      const res = await fetch(`/api/agents/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/agents/${id}`, {
+        method: "DELETE",
+        credentials: 'include',
+      });
       if (!res.ok) throw new Error("Delete failed.");
       setAgents((prev) => prev.filter((a) => a._id !== id));
     } catch (err) {
@@ -124,7 +129,7 @@ export default function AgentsPage() {
         {!loading && error && (
           <Card className="p-5 border-red-500/30 bg-red-500/5">
             <div className="flex items-center gap-3">
-              <AlertTriangle className="h-4.5 w-4.5 text-red-400 flex-shrink-0" />
+              <AlertTriangle className="h-4.5 w-4.5 text-red-400 shrink-0" />
               <p className="text-xs text-red-400">{error}</p>
             </div>
           </Card>
@@ -171,7 +176,7 @@ export default function AgentsPage() {
                             {agent.description || agent.prompt?.slice(0, 80) || "No description"}
                           </CardDescription>
                         </div>
-                        <Badge variant={agent.status === "active" ? "success" : "secondary"} className="flex-shrink-0">
+                        <Badge variant={agent.status === "active" ? "success" : "secondary"} className="shrink-0">
                           {agent.status === "active" ? "Active" : "Draft"}
                         </Badge>
                       </div>
@@ -214,13 +219,13 @@ export default function AgentsPage() {
 
                     {/* Actions footer */}
                     <div className="p-6 pt-4 border-t border-border/40 mt-4 flex items-center justify-between gap-2">
-                      <Link href="/workflow-builder" className="flex-1">
+                      <Link href={`/workflow-builder?agentId=${agent._id}&agentName=${encodeURIComponent(agent.name)}`} className="flex-1">
                         <Button variant="secondary" size="sm" className="w-full text-[10px]">
                           <ArrowUpRight className="h-3 w-3 mr-1" />
                           Open Canvas
                         </Button>
                       </Link>
-                      <Link href="/testing-sandbox">
+                      <Link href={`/testing-sandbox?agentId=${agent._id}&name=${encodeURIComponent(agent.name)}`}>
                         <button className="p-1.5 rounded-lg text-muted hover:text-accent hover:bg-accent-muted/30 transition-colors" title="Run in Sandbox">
                           <Play className="h-3.5 w-3.5" />
                         </button>

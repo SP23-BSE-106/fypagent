@@ -314,26 +314,27 @@ export default function LandingPage() {
 
   const pricing = [
     {
-      name: "Developer",
-      price: "$0",
+      name: "90-Day Free Trial",
+      price: "Rs. 0",
       highlight: false,
       features: [
-        "3 active agent flows",
-        "100 MB RAG storage",
-        "Shared API sandbox",
-        "Community support",
+        "90 Days Full Access",
+        "Unlimited Agent Workflows",
+        "Canvas Visual Builder",
+        "RAG Knowledge Base Engine",
+        "Community Support",
       ],
     },
     {
-      name: "Pro",
-      price: "$49",
+      name: "Pro Plan",
+      price: "Rs. 1,500",
       highlight: true,
       features: [
-        "Unlimited workflows",
-        "5 GB document DB",
-        "Custom domain widget",
-        "Dedicated API keys",
-        "Priority support",
+        "Everything in Free Trial",
+        "Unlimited Access Post 90 Days",
+        "Priority Canvas Node Execution",
+        "JazzCash / EasyPaisa / Card Payments",
+        "Dedicated API Endpoints",
       ],
     },
     {
@@ -341,11 +342,10 @@ export default function LandingPage() {
       price: "Custom",
       highlight: false,
       features: [
-        "Self‑hosted option",
-        "Unlimited storage",
-        "Custom SSO & IAM",
-        "99.9% SLA",
-        "Dedicated architect",
+        "Custom Agent Nodes & Integrations",
+        "Dedicated On-Premise Deployment",
+        "Custom Local Gateway Support",
+        "24/7 Priority Architect SLA",
       ],
     },
   ];

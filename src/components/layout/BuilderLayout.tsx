@@ -17,6 +17,8 @@ interface BuilderLayoutProps {
   onSave?: () => void;
   onDeploy?: () => void;
   isRunning?: boolean;
+  autoSaveStatus?: "idle" | "saving" | "saved" | "error";
+  lastSavedTime?: Date | null;
 }
 
 export const BuilderLayout: React.FC<BuilderLayoutProps> = ({
@@ -30,6 +32,8 @@ export const BuilderLayout: React.FC<BuilderLayoutProps> = ({
   onSave,
   onDeploy,
   isRunning = false,
+  autoSaveStatus = "idle",
+  lastSavedTime = null,
 }) => {
   const [showLogs, setShowLogs] = React.useState(true);
   const [leftOpen, setLeftOpen] = React.useState(true);
@@ -65,11 +69,52 @@ export const BuilderLayout: React.FC<BuilderLayoutProps> = ({
               Run Agent
             </Button>
           )}
+          <Link href="/testing-sandbox">
+            <Button variant="outline" size="sm" className="border-border text-foreground hover:bg-surface-light">
+              <Terminal className="h-3.5 w-3.5 mr-1.5 text-accent" />
+              Test in Sandbox
+            </Button>
+          </Link>
           {onSave && (
             <Button variant="secondary" size="sm" onClick={onSave}>
               <Save className="h-3.5 w-3.5 mr-1.5" />
               Save Draft
             </Button>
+          )}
+          
+          {/* Auto-save Status Indicator */}
+          {autoSaveStatus !== "idle" && (
+            <div className={cn(
+              "text-[10px] font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all",
+              autoSaveStatus === "saving" && "bg-accent/20 text-accent",
+              autoSaveStatus === "saved" && "bg-green-500/20 text-green-400",
+              autoSaveStatus === "error" && "bg-red-500/20 text-red-400"
+            )}>
+              {autoSaveStatus === "saving" && (
+                <>
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent animate-spin" />
+                  Saving...
+                </>
+              )}
+              {autoSaveStatus === "saved" && (
+                <>
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
+                  Saved
+                </>
+              )}
+              {autoSaveStatus === "error" && (
+                <>
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                  Save Failed
+                </>
+              )}
+            </div>
+          )}
+          
+          {lastSavedTime && (
+            <span className="text-[9px] text-muted ml-1">
+              Last saved: {lastSavedTime.toLocaleTimeString()}
+            </span>
           )}
           {onDeploy && (
             <Button size="sm" onClick={onDeploy}>

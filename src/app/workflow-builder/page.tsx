@@ -131,6 +131,7 @@ function WorkflowBuilderInner() {
   const [selectedNode, setSelectedNode] = React.useState<Node | null>(null);
   const [isRunning, setIsRunning] = React.useState(false);
 
+  const [saveBusy, setSaveBusy] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
   const [assistantInput, setAssistantInput] = React.useState("");
   const [assistantBusy, setAssistantBusy] = React.useState(false);
@@ -715,6 +716,7 @@ function WorkflowBuilderInner() {
       onRun={handleRun}
       isRunning={isRunning}
       onSave={handleSaveDraft}
+      isSaving={saveBusy}
       onDeploy={() => setLogs((prev) => [...prev, "[SYSTEM] Workflow compiled and deployed to public production endpoint."])}
       autoSaveStatus={autoSaveStatus}
       lastSavedTime={lastSavedTime}

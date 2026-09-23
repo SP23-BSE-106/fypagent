@@ -76,7 +76,7 @@ const PUBLIC_PATHS = [
   '/terms',
 ]
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Always allow Next.js internals, static files, and API routes
@@ -129,7 +129,7 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next()
 }
 
-// Tell Next.js which routes the middleware should run on.
+// Tell Next.js which routes the proxy should run on.
 // Using a broad matcher and then doing the filtering above ourselves
 // gives us full, readable control over the logic.
 export const config = {

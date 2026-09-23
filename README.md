@@ -81,7 +81,7 @@ AgentFlow/
 │   │   ├── mongo/             # Database connection & collection schemas
 │   │   ├── crypto.ts          # Encryption helpers
 │   │   └── rateLimit.ts       # Rate limiting middleware
-│   └── middleware.ts          # Protected route guard middleware
+│   └── proxy.ts               # Protected route guard (Next.js proxy)
 ├── .env.local.example         # Environment variable configuration template
 ├── next.config.ts             # Next.js configuration
 ├── package.json               # Dependencies and build scripts

@@ -17,6 +17,7 @@ interface BuilderLayoutProps {
   onSave?: () => void;
   onDeploy?: () => void;
   isRunning?: boolean;
+  isSaving?: boolean;
   autoSaveStatus?: "idle" | "saving" | "saved" | "error";
   lastSavedTime?: Date | null;
 }
@@ -32,6 +33,7 @@ export const BuilderLayout: React.FC<BuilderLayoutProps> = ({
   onSave,
   onDeploy,
   isRunning = false,
+  isSaving = false,
   autoSaveStatus = "idle",
   lastSavedTime = null,
 }) => {
@@ -76,7 +78,13 @@ export const BuilderLayout: React.FC<BuilderLayoutProps> = ({
             </Button>
           </Link>
           {onSave && (
-            <Button variant="secondary" size="sm" onClick={onSave}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onSave}
+              isLoading={isSaving}
+              disabled={isSaving}
+            >
               <Save className="h-3.5 w-3.5 mr-1.5" />
               Save Draft
             </Button>

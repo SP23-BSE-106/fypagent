@@ -27,7 +27,47 @@ function TestingSandboxInner() {
   const [kbStatus, setKbStatus] = React.useState<{ documents: number; chunks: number } | null>(null);
   const [kbUploadBusy, setKbUploadBusy] = React.useState(false);
   const [kbUploadMessage, setKbUploadMessage] = React.useState<string | null>(null);
+  const [kbClearBusy, setKbClearBusy] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const refreshKbStatus = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/rag/status', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setKbStatus({
+          documents: data.knowledge_base.documents,
+          chunks: data.knowledge_base.chunks
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to fetch KB status:', err);
+    }
+  }, []);
+
+  const handleKbClear = async () => {
+    if (!window.confirm('Delete ALL documents and chunks from the knowledge base?')) return;
+    setKbClearBusy(true);
+    setKbUploadMessage(null);
+    try {
+      const res = await fetch('/api/rag/upload', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true }),
+        credentials: 'include',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to clear knowledge base');
+      await refreshKbStatus();
+      setKbUploadMessage('✓ Knowledge base cleared — ready to re-upload');
+      setTimeout(() => setKbUploadMessage(null), 4000);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setKbUploadMessage(`✗ Clear failed: ${message}`);
+    } finally {
+      setKbClearBusy(false);
+    }
+  };
 
   const handleKbUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -51,16 +91,7 @@ function TestingSandboxInner() {
         const data = await res.json();
         setKbUploadMessage(`✓ Uploaded "${data.fileName}" with ${data.totalChunks} chunks`);
         // Refresh KB status
-        const statusRes = await fetch('/api/rag/status', {
-          credentials: 'include',
-        });
-        if (statusRes.ok) {
-          const statusData = await statusRes.json();
-          setKbStatus({
-            documents: statusData.knowledge_base.documents,
-            chunks: statusData.knowledge_base.chunks
-          });
-        }
+        await refreshKbStatus();
         setTimeout(() => setKbUploadMessage(null), 3000);
       } else {
         const errData = await res.json().catch(() => ({}));
@@ -322,9 +353,9 @@ function TestingSandboxInner() {
                 <span className="font-bold text-foreground">{kbStatus?.documents || 0}</span>
               </div>
               
-              {/* Upload Button */}
-              {(!kbStatus || kbStatus.chunks === 0) && (
-                <div className="mt-3 pt-3 border-t border-border/30">
+              {/* Upload / Clear Buttons */}
+              <div className="mt-3 pt-3 border-t border-border/30 space-y-2">
+                {(!kbStatus || kbStatus.chunks === 0) ? (
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={kbUploadBusy}
@@ -332,23 +363,40 @@ function TestingSandboxInner() {
                   >
                     {kbUploadBusy ? '⏳ Uploading...' : '📤 Upload Document'}
                   </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    onChange={handleKbUpload}
-                    accept=".txt,.pdf,.md"
-                    className="hidden"
-                    disabled={kbUploadBusy}
-                  />
-                  {kbUploadMessage && (
-                    <div className={`mt-2 text-[8px] p-1.5 rounded ${
-                      kbUploadMessage.startsWith('✓') ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-                    }`}>
-                      {kbUploadMessage}
-                    </div>
-                  )}
-                </div>
-              )}
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={kbUploadBusy || kbClearBusy}
+                      className="flex-1 text-[9px] font-semibold px-2.5 py-1.5 rounded bg-accent/20 text-accent hover:bg-accent/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      {kbUploadBusy ? '⏳ Uploading...' : '📤 Upload'}
+                    </button>
+                    <button
+                      onClick={handleKbClear}
+                      disabled={kbUploadBusy || kbClearBusy}
+                      className="flex-1 text-[9px] font-semibold px-2.5 py-1.5 rounded bg-red-500/15 text-red-400 hover:bg-red-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      {kbClearBusy ? '⏳ Clearing...' : '🗑️ Clear All'}
+                    </button>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleKbUpload}
+                  accept=".txt,.pdf,.md"
+                  className="hidden"
+                  disabled={kbUploadBusy}
+                />
+                {kbUploadMessage && (
+                  <div className={`text-[8px] p-1.5 rounded ${
+                    kbUploadMessage.startsWith('✓') ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                  }`}>
+                    {kbUploadMessage}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

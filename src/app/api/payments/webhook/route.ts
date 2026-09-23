@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import { getDb } from '@/lib/mongo/mongo'
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
 import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
 
 export async function POST(req: NextRequest) {
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
 
   try {
     if (webhookSecret && sig) {
-      event = stripe.webhooks.constructEvent(bodyText, sig, webhookSecret)
+      event = getStripe().webhooks.constructEvent(bodyText, sig, webhookSecret)
     } else {
       event = JSON.parse(bodyText)
     }

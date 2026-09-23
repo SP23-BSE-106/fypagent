@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/mongo/mongo'
 import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
-import { generateEmbedding, cosineSimilarity } from '@/lib/rag/embeddings'
+import { generateEmbedding } from '@/lib/rag/embeddings'
+import { searchChunks } from '@/lib/rag/vectorStore'
 
 /**
  * POST /api/rag/chat
  * 
  * RAG-augmented chat endpoint:
  * 1. Retrieves relevant document chunks from the user's knowledge base
+ *    (local embedding + Atlas vector index, exact-cosine fallback)
  * 2. Sends the user question + retrieved context to Kimi LLM
  * 3. Returns an intelligent, grounded answer
  */
@@ -26,43 +27,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Question is required' }, { status: 400 })
     }
 
-    const kimiApiKey = process.env.KIMI_API_KEY || process.env.MOONSHOT_API_KEY
-
     // ── Step 1: RAG Retrieval ──────────────────────────────────────────────
     let ragContext = ''
     let ragSources: { text: string; similarity: number; documentId: string }[] = []
     let debugInfo = { userId, chunksFound: 0, embeddingError: null as any }
 
     try {
-      const db = await getDb()
-      
-      // First, check how many chunks exist for this user
-      const totalChunks = await db.collection('rag_chunks').countDocuments({ userId })
-      debugInfo.chunksFound = totalChunks
-      console.log(`[rag/chat] User ${userId} has ${totalChunks} chunks in knowledge base`)
+      const queryVector = await generateEmbedding(question)
+      const { hits, engine } = await searchChunks({ userId, queryVector, topK })
 
-      if (totalChunks === 0) {
-        console.warn(`[rag/chat] No chunks found for user ${userId}. Knowledge base is empty.`)
-      } else {
-        const queryVector = await generateEmbedding(question, kimiApiKey)
-        const chunks = await db.collection('rag_chunks').find({ userId }).toArray()
+      debugInfo.chunksFound = hits.length
+      console.log(`[rag/chat] User ${userId} retrieved ${hits.length} chunk(s) via ${engine}`)
 
-        if (chunks.length > 0) {
-          const scored = chunks
-            .map((chunk) => ({
-              text: chunk.text as string,
-              documentId: chunk.documentId as string,
-              similarity: chunk.embedding
-                ? cosineSimilarity(queryVector, chunk.embedding)
-                : 0,
-            }))
-            .sort((a, b) => b.similarity - a.similarity)
-            .slice(0, topK)
-
-          ragSources = scored
-          ragContext = scored.map((s, i) => `[Document Chunk ${i + 1}]:\n${s.text}`).join('\n\n')
-        }
-      }
+      ragSources = hits.map((hit) => ({
+        text: hit.text,
+        documentId: hit.documentId,
+        similarity: hit.similarity,
+      }))
+      ragContext = ragSources
+        .map((s, i) => `[Document Chunk ${i + 1}]:\n${s.text}`)
+        .join('\n\n')
     } catch (ragError) {
       debugInfo.embeddingError = ragError instanceof Error ? ragError.message : String(ragError)
       console.warn('[rag/chat] RAG retrieval failed, proceeding without context:', ragError)
@@ -76,6 +60,10 @@ export async function POST(req: NextRequest) {
 ${ragContext}
 --- END CONTEXT ---`
       : `You are a helpful AI assistant. The user has no documents in their knowledge base yet. Let them know they should upload documents first, then answer as best you can from general knowledge.`
+
+    // Optional third LLM endpoint. (Embeddings no longer use this key — they
+    // are generated locally by the model in src/lib/rag/embeddings.ts.)
+    const kimiApiKey = process.env.KIMI_API_KEY || process.env.MOONSHOT_API_KEY
 
     let answer = ''
 

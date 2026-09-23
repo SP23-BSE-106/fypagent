@@ -43,3 +43,6 @@ next-env.d.ts
 # model / dataset artifacts
 nemotron-*.tar.gz
 
+# local embedding model weights (downloaded on first use)
+/.hf-cache/
+

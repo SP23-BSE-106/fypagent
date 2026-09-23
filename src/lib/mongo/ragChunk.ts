@@ -1,5 +1,7 @@
 export type RagChunk = {
   _id?: string
+  /** Owning user — required so vector search can filter per user. */
+  userId?: string
   documentId: string
   chunkIndex: number
   /** Chunk text to embed/search */
@@ -10,6 +12,8 @@ export type RagChunk = {
    * or store an external reference.
    */
   embedding?: number[]
+  /** Model that produced `embedding`, e.g. "Xenova/all-MiniLM-L6-v2". */
+  embeddingModel?: string
   embeddingRef?: {
     provider?: string
     vectorId?: string
@@ -17,5 +21,6 @@ export type RagChunk = {
   }
 
   createdAt: Date
+  reindexedAt?: Date
 }
 

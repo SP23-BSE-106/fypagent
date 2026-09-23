@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
 import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
 
 export async function POST(req: Request) {
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
       sessionParams.payment_method_collection = 'always'
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams)
+    const session = await getStripe().checkout.sessions.create(sessionParams)
 
     return NextResponse.json({ url: session.url, sessionId: session.id })
   } catch (error: any) {

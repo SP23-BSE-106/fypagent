@@ -1,19 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo/mongo'
 import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
+import { EMBEDDING_DIMENSION, EMBEDDING_MODEL } from '@/lib/rag/embeddings'
+import { countStaleEmbeddings, getIndexStatus, VECTOR_INDEX_NAME } from '@/lib/rag/vectorStore'
 
 /**
  * GET /api/rag/status
- * 
- * Diagnostic endpoint to check knowledge base status for current user
+ *
+ * Diagnostic endpoint to check knowledge base status for current user,
+ * including the state of the Atlas vector index and whether any stored
+ * embeddings are stale (written by a different model, or never written).
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const token = await getSessionTokenFromCookies()
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const payload = verifyJwt(token)
-    const userId = payload.sub
+    const userId = String(payload.sub)
 
     const db = await getDb()
 
@@ -36,6 +40,9 @@ export async function GET(req: NextRequest) {
       .sort({ createdAt: -1 })
       .toArray()
 
+    const { total, fresh } = await countStaleEmbeddings(userId)
+    const vectorIndex = await getIndexStatus({ refresh: true })
+
     return NextResponse.json({
       status: 'ok',
       userId,
@@ -52,14 +59,21 @@ export async function GET(req: NextRequest) {
           documentId: c.documentId,
           text: c.text.slice(0, 100) + '...',
           has_embedding: !!c.embedding && Array.isArray(c.embedding) && c.embedding.length > 0
-        }))
+        })),
+        // Embedding / vector index health
+        embedding_model: EMBEDDING_MODEL,
+        embedding_dimension: EMBEDDING_DIMENSION,
+        vector_index: {
+          name: VECTOR_INDEX_NAME,
+          state: vectorIndex,
+          queryable: vectorIndex === 'READY'
+        },
+        stale_embeddings: total - fresh,
       }
     })
-  } catch (error: any) {
-    console.error('RAG Status Error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to check RAG status' },
-      { status: 500 }
-    )
+  } catch (error) {
+    console.error('[RAG Status] Error:', error)
+    const message = error instanceof Error ? error.message : 'Failed to read knowledge base status'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

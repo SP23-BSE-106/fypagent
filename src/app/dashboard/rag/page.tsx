@@ -28,6 +28,10 @@ export default function DocumentCenterPage() {
   const [isQuerying, setIsQuerying] = React.useState(false);
   const [queryResults, setQueryResults] = React.useState<any[]>([]);
 
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [isReindexing, setIsReindexing] = React.useState(false);
+  const [reindexMessage, setReindexMessage] = React.useState<string | null>(null);
+
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const fetchDocuments = React.useCallback(async () => {
@@ -43,6 +47,44 @@ export default function DocumentCenterPage() {
       setLoading(false);
     }
   }, []);
+
+  const handleDelete = async (doc: DocumentItem) => {
+    if (!window.confirm(`Delete "${doc.name}" and its ${doc.chunks} chunks from the knowledge base?`)) return;
+    setDeletingId(doc.id);
+    try {
+      const res = await fetch("/api/rag/upload", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId: doc.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete document");
+      fetchDocuments();
+    } catch (err) {
+      alert("Error deleting document: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleReindex = async () => {
+    setIsReindexing(true);
+    setReindexMessage(null);
+    try {
+      const res = await fetch("/api/rag/reindex", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Reindex failed");
+      setReindexMessage(
+        `✓ Rebuilt ${data.reindexed}/${data.total} embeddings · index ${data.vector_index}`
+      );
+      fetchDocuments();
+    } catch (err) {
+      setReindexMessage("✗ " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsReindexing(false);
+      setTimeout(() => setReindexMessage(null), 8000);
+    }
+  };
 
   React.useEffect(() => {
     fetchDocuments();
@@ -117,7 +159,8 @@ export default function DocumentCenterPage() {
         <div className="space-y-1">
           <h2 className="font-h1 font-bold text-foreground">Knowledge base (RAG Center)</h2>
           <p className="text-xs text-muted">
-            Ingest corporate manuals, support document libraries, and API specifications using Kimi Embeddings vector storage.
+            Ingest corporate manuals, support document libraries, and API specifications using
+            local MiniLM embeddings stored in MongoDB Atlas Vector Search.
           </p>
         </div>
 
@@ -146,7 +189,7 @@ export default function DocumentCenterPage() {
           <Card className="p-5 flex items-center justify-between">
             <div className="space-y-1">
               <span className="text-[10px] font-bold text-muted uppercase tracking-wide">Embedding Provider</span>
-              <div className="text-sm font-extrabold text-emerald-400">Kimi (Moonshot API)</div>
+              <div className="text-sm font-extrabold text-emerald-400">Local MiniLM-L6-v2 (384-d)</div>
             </div>
             <div className="h-9 w-9 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
               <Sparkles className="h-4.5 w-4.5" />
@@ -181,7 +224,7 @@ export default function DocumentCenterPage() {
               {isUploading && (
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center justify-between text-[10px]">
-                    <span className="font-semibold text-accent">Generating Kimi Vector Chunks...</span>
+                    <span className="font-semibold text-accent">Generating vector embeddings...</span>
                     <span className="font-bold">{uploadProgress}%</span>
                   </div>
                   <div className="h-1.5 w-full bg-border rounded-full overflow-hidden">
@@ -192,6 +235,34 @@ export default function DocumentCenterPage() {
                   </div>
                 </div>
               )}
+
+              {/* Rebuild embeddings with the current model / vector index */}
+              <div className="mt-4 pt-4 border-t border-border/40 space-y-2">
+                <Button
+                  variant="ghost"
+                  onClick={handleReindex}
+                  disabled={isReindexing || documents.length === 0}
+                  className="w-full text-xs"
+                  isLoading={isReindexing}
+                >
+                  Rebuild Embeddings
+                </Button>
+                <p className="text-[10px] text-muted leading-relaxed">
+                  Re-embeds stored chunks with the current model and repairs the Atlas vector
+                  index. Use after changing the embedding model — no re-upload needed.
+                </p>
+                {reindexMessage && (
+                  <div
+                    className={`text-[10px] p-2 rounded ${
+                      reindexMessage.startsWith("✓")
+                        ? "bg-emerald-500/10 text-emerald-400"
+                        : "bg-red-500/10 text-red-400"
+                    }`}
+                  >
+                    {reindexMessage}
+                  </div>
+                )}
+              </div>
             </Card>
 
             {/* Test Semantic Vector Retriever */}
@@ -256,6 +327,7 @@ export default function DocumentCenterPage() {
                     <TableHead>Chunks</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Uploaded</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -277,11 +349,22 @@ export default function DocumentCenterPage() {
                       <TableCell className="text-xs text-muted">
                         {new Date(doc.createdAt).toLocaleDateString()}
                       </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          disabled={deletingId === doc.id}
+                          onClick={() => handleDelete(doc)}
+                          aria-label={`Delete ${doc.name}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {filteredDocs.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-xs text-muted">
+                      <TableCell colSpan={6} className="text-center py-8 text-xs text-muted">
                         {loading ? "Loading knowledge base..." : "No documents uploaded yet. Upload a file on the left panel."}
                       </TableCell>
                     </TableRow>

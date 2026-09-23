@@ -1,62 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/mongo/mongo'
 import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
-import { generateEmbedding, cosineSimilarity } from '@/lib/rag/embeddings'
+import { generateEmbedding } from '@/lib/rag/embeddings'
+import { searchChunks } from '@/lib/rag/vectorStore'
 
-export async function POST(req: NextRequest) {
+/**
+ * POST /api/rag/query
+ *
+ * Semantic search over the caller's knowledge base.
+ * Embedding is local (Transformers.js) and retrieval goes through the Atlas
+ * vector index, with an exact-cosine fallback while the index is still building.
+ */
+export async function POST(_req: NextRequest) {
   try {
     const token = await getSessionTokenFromCookies()
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const payload = verifyJwt(token)
-    const userId = payload.sub
+    const userId = String(payload.sub)
 
-    const body = await req.json().catch(() => ({}))
+    const body = await _req.json().catch(() => ({}))
     const { query, topK = 3 } = body
 
     if (!query || !query.trim()) {
       return NextResponse.json({ error: 'Query string is required' }, { status: 400 })
     }
 
-    const kimiApiKey = process.env.KIMI_API_KEY || process.env.MOONSHOT_API_KEY
+    const queryVector = await generateEmbedding(query)
+    const { hits, engine } = await searchChunks({ userId, queryVector, topK })
 
-    // 1. Generate query vector
-    const queryVector = await generateEmbedding(query, kimiApiKey)
-
-    // 2. Fetch user's chunks from MongoDB
-    const db = await getDb()
-    const chunks = await db.collection('rag_chunks').find({ userId }).toArray()
-
-    if (chunks.length === 0) {
+    if (hits.length === 0) {
       return NextResponse.json({
         query,
+        engine,
         results: [],
         message: 'No documents uploaded in knowledge base yet.',
       })
     }
 
-    // 3. Compute cosine similarity for each chunk
-    const scoredChunks = chunks
-      .map((chunk) => {
-        const similarity = chunk.embedding
-          ? cosineSimilarity(queryVector, chunk.embedding)
-          : 0
-        return {
-          id: chunk._id.toString(),
-          documentId: chunk.documentId,
-          text: chunk.text,
-          similarity,
-        }
-      })
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, topK)
-
     return NextResponse.json({
       query,
-      results: scoredChunks,
+      engine,
+      results: hits.map((hit) => ({
+        id: hit.id,
+        documentId: hit.documentId,
+        text: hit.text,
+        similarity: hit.similarity,
+      })),
     })
-  } catch (error: any) {
-    console.error('RAG Query Error:', error)
-    return NextResponse.json({ error: error.message || 'RAG query search failed' }, { status: 500 })
+  } catch (error) {
+    console.error('[RAG Query] Error:', error)
+    const message = error instanceof Error ? error.message : 'Vector query failed'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

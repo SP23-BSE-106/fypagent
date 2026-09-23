@@ -94,8 +94,28 @@ function TestingSandboxInner() {
         await refreshKbStatus();
         setTimeout(() => setKbUploadMessage(null), 3000);
       } else {
-        const errData = await res.json().catch(() => ({}));
-        setKbUploadMessage(`✗ Upload failed: ${errData.error || 'Unauthorized'}`);
+        // Never default to "Unauthorized": a Vercel gateway/timeout page or a
+        // 404 returns HTML, `res.json()` fails, and the old `|| 'Unauthorized'`
+        // fallback blamed auth for what was really a 5xx.
+        const raw = await res.text().catch(() => "");
+        let errData: { error?: string } = {};
+        try {
+          errData = raw ? JSON.parse(raw) : {};
+        } catch {
+          /* non-JSON error page — fall through to the status line below */
+        }
+
+        if (res.status === 401) {
+          setKbUploadMessage("✗ Session expired — log in again, then retry the upload.");
+        } else if (errData.error) {
+          setKbUploadMessage(`✗ Upload failed (${res.status}): ${errData.error}`);
+        } else {
+          const snippet = raw.replace(/\s+/g, " ").trim().slice(0, 140);
+          setKbUploadMessage(
+            `✗ Upload failed — HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ""}` +
+              (snippet ? ` — ${snippet}` : ""),
+          );
+        }
       }
     } catch (err) {
       console.error('KB upload error:', err);

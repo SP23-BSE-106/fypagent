@@ -8,7 +8,7 @@ import bcrypt from 'bcryptjs'
 
 import { getDb } from '@/lib/mongo/mongo'
 import { rateLimit } from '@/lib/rateLimit'
-import { clearSessionToken, getSessionTokenFromCookies, setSessionToken, signJwt, verifyJwt } from '@/lib/auth/jwt'
+import { clearSessionToken, getSessionTokenFromCookies, setSessionToken, signJwt, verifyJwt, SESSION_MAX_AGE } from '@/lib/auth/jwt'
 
 function isStrongPassword(password: string) {
   return password.length >= 12 && /[A-Z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password)
@@ -30,10 +30,10 @@ export async function login(email: string, password: string) {
   const ok = await bcrypt.compare(password, user.passwordHash)
   if (!ok) return { error: 'Invalid credentials' }
 
-  // 1 hour session
+  // Cookie + JWT must share this lifetime — see SESSION_MAX_AGE.
   const jwt = signJwt(
     { sub: String(user._id), email: user.email, fullName: user.fullName },
-    60 * 60,
+    SESSION_MAX_AGE,
   )
   await setSessionToken(jwt)
 
@@ -64,10 +64,10 @@ export async function signup(email: string, password: string, fullName: string) 
 
   const insertedId = String(result.insertedId)
 
-  // 1 hour session
+  // Cookie + JWT must share this lifetime — see SESSION_MAX_AGE.
   const jwt = signJwt(
     { sub: insertedId, email: normalizedEmail, fullName: fullName.trim() || undefined },
-    60 * 60,
+    SESSION_MAX_AGE,
   )
   await setSessionToken(jwt)
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
 import { getDb } from "@/lib/mongo/mongo";
-import { signJwt, setSessionToken } from "@/lib/auth/jwt";
+import { signJwt, setSessionToken, SESSION_MAX_AGE } from "@/lib/auth/jwt";
 
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_ENDPOINT = "https://www.googleapis.com/oauth2/v2/userinfo";
@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
 
   const jwt = signJwt(
     { sub: userId, email, fullName: fullName || undefined },
-    60 * 60 * 24 * 7
+    SESSION_MAX_AGE
   );
   await setSessionToken(jwt);
 

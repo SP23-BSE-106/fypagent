@@ -37,6 +37,12 @@ export default function DocumentCenterPage() {
   const fetchDocuments = React.useCallback(async () => {
     try {
       const res = await fetch("/api/rag/upload");
+      if (res.status === 401) {
+        // Don't render an empty knowledge base as if it were real — that hid
+        // the expired-session problem behind "No documents uploaded yet".
+        window.location.replace("/login?redirect=/dashboard/rag");
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setDocuments(data.documents || []);
@@ -110,9 +116,23 @@ export default function DocumentCenterPage() {
       });
 
       setUploadProgress(85);
-      const data = await res.json();
+      // Read as text first: a Vercel gateway/timeout page is HTML, and calling
+      // `res.json()` on it throws a confusing "Unexpected token" error.
+      const raw = await res.text();
+      let data: { error?: string } = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        /* non-JSON error page — handled via the status below */
+      }
 
-      if (!res.ok) throw new Error(data.error || "Failed to process upload");
+      if (!res.ok) {
+        if (res.status === 401) throw new Error("Session expired — log in again, then retry.");
+        throw new Error(
+          data.error ||
+            `HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ""} (non-JSON error page)`,
+        );
+      }
 
       setUploadProgress(100);
       fetchDocuments();

@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs'
 
 import { getDb } from '@/lib/mongo/mongo'
 import { rateLimit } from '@/lib/rateLimit'
-import { signJwt, setSessionToken } from '@/lib/auth/jwt'
+import { signJwt, setSessionToken, SESSION_MAX_AGE } from '@/lib/auth/jwt'
 
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as {
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
   const jwt = signJwt(
     { sub: user._id, email: user.email, fullName: user.fullName },
-    60 * 60 * 24 * 7,
+    SESSION_MAX_AGE,
   )
   await setSessionToken(jwt)
 

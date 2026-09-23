@@ -15,7 +15,9 @@
  *
  * Model: Xenova/all-MiniLM-L6-v2 — 384-dim, ~90MB, ~8ms/call on CPU.
  * Weights are downloaded once and cached in .hf-cache/ (kept out of
- * node_modules so `npm install` does not wipe them).
+ * node_modules so `npm install` does not wipe them) — or in `/tmp/.hf-cache`
+ * on Vercel, where the project directory is read-only and gitignored files
+ * are not deployed at all. See CACHE_DIR.
  */
 
 import fs from 'node:fs'
@@ -25,8 +27,18 @@ import { env, pipeline, type FeatureExtractionPipeline } from '@huggingface/tran
 export const EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2'
 export const EMBEDDING_DIMENSION = 384
 
-/** Weights live outside node_modules so `npm install` does not wipe them. */
-const CACHE_DIR = path.join(process.cwd(), '.hf-cache')
+/**
+ * Weights live outside node_modules so `npm install` does not wipe them.
+ *
+ * On Vercel the project directory is read-only (only `/tmp` is writable) and
+ * `.hf-cache/` is gitignored, so its 86.9 MB of weights are never deployed.
+ * Pointing at `/tmp/.hf-cache` lets the loader download the model at runtime
+ * and keep it across warm invocations of the same instance. Locally nothing
+ * changes — we keep the pinned project-local cache.
+ */
+const CACHE_DIR = process.env.VERCEL
+  ? path.join('/tmp', '.hf-cache')
+  : path.join(process.cwd(), '.hf-cache')
 env.cacheDir = CACHE_DIR
 
 /**

@@ -81,6 +81,18 @@ export function verifyJwt(token: string): JwtPayload {
 
 export const SESSION_COOKIE = process.env.SESSION_COOKIE_NAME || 'agentflow_session'
 
+/**
+ * Session lifetime in seconds.
+ *
+ * This MUST be passed to `signJwt()` for every session we mint AND used as the
+ * cookie's `maxAge`. If the cookie outlives the JWT the browser keeps sending a
+ * dead token (every request 401s / redirects to login). If the cookie expires
+ * first — which is what happened before: cookie = 1h, JWT = 7d — the browser
+ * silently drops it mid-session, so a page that is already open renders fine
+ * but every subsequent API call fails with a real 401.
+ */
+export const SESSION_MAX_AGE = 60 * 60 * 24 * 7
+
 export async function getSessionTokenFromCookies() {
   const cookieStore = await cookies()
   return cookieStore.get(SESSION_COOKIE)?.value
@@ -93,8 +105,8 @@ export async function setSessionToken(token: string) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    // 1 hour (seconds)
-    maxAge: 60 * 60,
+    // Must equal the `maxAgeSeconds` used when signing — see SESSION_MAX_AGE.
+    maxAge: SESSION_MAX_AGE,
   })
 }
 

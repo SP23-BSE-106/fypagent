@@ -41,10 +41,17 @@ export async function POST(req: NextRequest) {
           }
         } catch (pdfErr) {
           console.error('[RAG Upload] PDF text extraction failed:', pdfErr)
+          // The canned explanation above cannot distinguish a genuinely bad
+          // file from pdf-parse failing to load — which is exactly what
+          // happened on Vercel when its @napi-rs/canvas dependency was pruned
+          // out of the deployed function. Appending the real reason keeps the
+          // message useful to the person uploading while still telling us
+          // which of the two it actually was.
+          const reason =
+            pdfErr instanceof Error ? pdfErr.message : String(pdfErr)
           return NextResponse.json(
             {
-              error:
-                'Could not extract text from this PDF. It may be corrupted, password-protected, or a scanned (image-only) PDF with no text layer. Please upload a text-based PDF, .txt, or .md file.',
+              error: `Could not extract text from this PDF. It may be corrupted, password-protected, or a scanned (image-only) PDF with no text layer. Please upload a text-based PDF, .txt, or .md file. (${reason})`,
             },
             { status: 422 }
           )

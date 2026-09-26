@@ -22,7 +22,12 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { env, pipeline, type FeatureExtractionPipeline } from '@huggingface/transformers'
+// Type-only, so it is erased at compile time and pulls in no runtime module.
+// The runtime import of this package happens lazily inside getExtractor() —
+// see the note there. Importing it statically here made every file that
+// touched this module fail to *load* on Vercel, which took down all of
+// /api/rag/* with a bare HTML 500 before any handler could run.
+import type { FeatureExtractionPipeline } from '@huggingface/transformers'
 
 export const EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2'
 export const EMBEDDING_DIMENSION = 384
@@ -39,7 +44,6 @@ export const EMBEDDING_DIMENSION = 384
 const CACHE_DIR = process.env.VERCEL
   ? path.join('/tmp', '.hf-cache')
   : path.join(process.cwd(), '.hf-cache')
-env.cacheDir = CACHE_DIR
 
 /**
  * Decide how to address the model: an absolute directory, or the hub id.
@@ -120,10 +124,30 @@ function getExtractor(): Promise<FeatureExtractionPipeline> {
     const source = resolveModelSource()
     installExactBufferReads()
 
-    extractorPromise = pipeline('feature-extraction', source, {
-      dtype: 'fp32',
-      device: 'cpu',
-    }).catch((err: unknown) => {
+    extractorPromise = (async () => {
+      /**
+       * Deliberately a dynamic import.
+       *
+       * `@huggingface/transformers` opens with a top-level
+       * `import sharp from "sharp"` (dist/transformers.node.mjs:18832), so a
+       * *static* import of this package dlopens libvips during module
+       * evaluation. On Vercel the traced bundle was missing that shared
+       * library, so the import threw ERR_DLOPEN_FAILED at load time — and
+       * because status/query/chat/upload/reindex all reach this file, the
+       * entire /api/rag/* route failed to load and Next answered every path
+       * under it (including a plain 404 probe) with an opaque HTML 500.
+       *
+       * Deferring the import to here means only the code paths that actually
+       * embed text pay for it. /api/rag/status needs just two constants and
+       * never touches the model, so it now loads regardless — and if the
+       * native module really is unavailable, this rejects as an ordinary
+       * promise that the caller's catch block reports as JSON instead of
+       * collapsing the whole route.
+       */
+      const { env, pipeline } = await import('@huggingface/transformers')
+      env.cacheDir = CACHE_DIR
+      return pipeline('feature-extraction', source, { dtype: 'fp32', device: 'cpu' })
+    })().catch((err: unknown) => {
       extractorPromise = null
       const message = err instanceof Error ? err.message : String(err)
       console.error(

@@ -13,30 +13,39 @@ const nextConfig: NextConfig = {
     "onnxruntime-node",
   ],
 
-  // Native binaries that Node File Trace cannot discover on its own.
+  // Files that Node File Trace under-reports for this route.
   //
-  // These packages locate these through *runtime-computed* requires, so the
-  // static trace never sees them and they are pruned from the deployed
-  // function:
-  //   sharp        require(`@img/sharp-libvips-${platform}/lib`)  -> dist/libvips.cjs
-  //   onnxruntime  bin/napi-v6/${process.platform}/${process.arch}/...
-  //   @napi-rs     require(`@napi-rs/canvas-${platform}-${arch}-${libc}`)
-  // On Windows this went unnoticed because sharp ships libvips *inside*
-  // @img/sharp-win32-x64. On Vercel (linux-x64) libvips is a separate
-  // package, so `libvips-cpp.so.8.18.6` went missing and every /api/rag/*
-  // route 500'd at import time with "cannot open shared object file".
+  // Two separate traps, both invisible on Windows because the native
+  // packages ship a different layout there:
   //
-  // @napi-rs/canvas is the same failure wearing a different hat: it is a hard
-  // dependency of pdf-parse, and with its files pruned every PDF upload died
-  // in PDFParse and surfaced as a 422 "could not extract text".
+  //   sharp / onnxruntime / @napi-rs/canvas resolve their binaries through
+  //   *runtime-computed* requires, which the static trace cannot follow:
+  //     sharp        require(`@img/sharp-libvips-${platform}/lib`)
+  //     onnxruntime  bin/napi-v6/${process.platform}/${process.arch}/...
+  //     @napi-rs     require(`@napi-rs/canvas-${platform}-${arch}-${libc}`)
+  //   On Vercel (linux-x64) sharp's libvips is a separate package, so
+  //   `libvips-cpp.so.8.18.6` went missing and every /api/rag/* route 500'd
+  //   at import time with "cannot open shared object file".
   //
-  // Scoped to /api/rag/* - those are the only routes that import
-  // @/lib/rag/embeddings, so the rest of the app pays nothing for this.
+  //   pdf-parse -> pdfjs-dist is worse: pdf-parse imports it only from inside
+  //   its own bundle (PDFParse.js: `from 'pdfjs-dist/legacy/build/pdf.mjs'`),
+  //   and the trace recorded exactly one file of pdfjs-dist - no
+  //   pdf.worker.mjs, no cjs entry of pdf-parse - yet even that one file was
+  //   absent from the deployed function. Every upload failed with
+  //     Cannot find module '/var/task/node_modules/pdfjs-dist/legacy/build/pdf.mjs'
+  //   which pdf-parse wrapped as "Setting up worker failed" and our handler
+  //   surfaced as a 422 "could not extract text".
+  //
+  // Pinning the packages whole sidesteps guessing at each layout. Scoped to
+  // /api/rag/* - the only routes that import pdf-parse or
+  // @/lib/rag/embeddings - so the rest of the app pays nothing for this.
   outputFileTracingIncludes: {
     "/api/rag/*": [
       "./node_modules/@huggingface/transformers/node_modules/@img/**/*",
       `./node_modules/onnxruntime-node/bin/*/${process.platform}/${process.arch}/**/*`,
       "./node_modules/@napi-rs/**/*",
+      "./node_modules/pdf-parse/**/*",
+      "./node_modules/pdfjs-dist/**/*",
     ],
   },
 };

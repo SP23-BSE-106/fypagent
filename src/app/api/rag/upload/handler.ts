@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import fs from 'node:fs'
+import path from 'node:path'
 import { ObjectId } from 'mongodb'
 import { getDb } from '@/lib/mongo/mongo'
 import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
@@ -42,16 +44,44 @@ export async function POST(req: NextRequest) {
         } catch (pdfErr) {
           console.error('[RAG Upload] PDF text extraction failed:', pdfErr)
           // The canned explanation above cannot distinguish a genuinely bad
-          // file from pdf-parse failing to load — which is exactly what
-          // happened on Vercel when its @napi-rs/canvas dependency was pruned
-          // out of the deployed function. Appending the real reason keeps the
-          // message useful to the person uploading while still telling us
-          // which of the two it actually was.
+          // file from pdf-parse failing to load, and that ambiguity is what
+          // made this take three rounds of guessing (first sharp, then
+          // @napi-rs/canvas, then bundling - all wrong). So report what is
+          // actually on disk in the running function. Reaching here means the
+          // session check above already passed, so this is not anonymous.
           const reason =
             pdfErr instanceof Error ? pdfErr.message : String(pdfErr)
+          const disk: Record<string, string> = {}
+          const root = path.join(process.cwd(), 'node_modules')
+          const probe = (key: string, ...parts: string[]) => {
+            try {
+              disk[key] = fs.existsSync(path.join(root, ...parts))
+                ? 'present'
+                : 'MISSING'
+            } catch {
+              disk[key] = 'error'
+            }
+          }
+          probe('pdfjs_pkg', 'pdfjs-dist', 'package.json')
+          probe('pdfjs_main', 'pdfjs-dist', 'legacy', 'build', 'pdf.mjs')
+          probe('pdfjs_worker', 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.mjs')
+          probe('pdfparse_pkg', 'pdf-parse', 'package.json')
+          probe('pdfparse_esm', 'pdf-parse', 'dist', 'pdf-parse', 'esm', 'index.js')
+          probe('pdfparse_phantom', 'pdf-parse', 'dist', 'index.js')
+          probe('canvas', '@napi-rs', 'canvas')
+          try {
+            disk.pdfparse_version = JSON.parse(
+              fs.readFileSync(path.join(root, 'pdf-parse', 'package.json'), 'utf8'),
+            ).version
+          } catch {
+            disk.pdfparse_version = 'unreadable'
+          }
+          const diskSummary = Object.entries(disk)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(' ')
           return NextResponse.json(
             {
-              error: `Could not extract text from this PDF. It may be corrupted, password-protected, or a scanned (image-only) PDF with no text layer. Please upload a text-based PDF, .txt, or .md file. (${reason})`,
+              error: `Could not extract text from this PDF. It may be corrupted, password-protected, or scanned (image-only) PDF with no text layer. Please upload a text-based PDF, .txt, or .md file. (${reason}) [disk: ${diskSummary}]`,
             },
             { status: 422 }
           )

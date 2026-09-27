@@ -1,10 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // These pull in native addons / Node-only code. Keep them out of the server
-  // bundle and let Node require them natively:
-  //   · pdf-parse / pdfjs-dist -> @napi-rs/canvas
-  //   · @huggingface/transformers -> onnxruntime-node (local embedding model)
+  // Native addons / Node-only code that must be required natively rather than
+  // bundled: pdf-parse -> @napi-rs/canvas (compiled .node binding),
+  // @huggingface/transformers -> onnxruntime-node (local embedding model).
+  //
+  // pdf-parse / pdfjs-dist are kept EXTERNAL on purpose. Bundling them was
+  // tried and is worse: pdfjs resolves its worker as
+  //   workerSrc ||= "./pdf.worker.mjs"   // relative to the importing chunk
+  // so once bundled it looks for .next/server/chunks/pdf.worker.mjs, which is
+  // never emitted, and every upload fails with
+  //   Setting up fake worker failed: Cannot find module '.../chunks/pdf.worker.mjs'
+  // Externally, that import resolves next to the real package and works.
   serverExternalPackages: [
     "pdf-parse",
     "pdfjs-dist",

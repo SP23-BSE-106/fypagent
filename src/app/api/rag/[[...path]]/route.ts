@@ -8,6 +8,12 @@ import * as reindex from '../reindex/handler'
 import * as status from '../status/handler'
 import * as upload from '../upload/handler'
 
+// The first upload can download and initialise the local embedding model
+// before it embeds the document. Vercel's default function timeout is too
+// short for that cold start, so keep the RAG dispatcher alive for 60 seconds.
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 /** `/api/rag/upload` also serves `GET` (list documents) and `DELETE` (clear). */
 const routes = {
   chat,

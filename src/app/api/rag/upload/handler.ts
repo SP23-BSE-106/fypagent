@@ -9,13 +9,16 @@ import { generateEmbedding, EMBEDDING_MODEL, EMBEDDING_DIMENSION } from '@/lib/r
 import { kickOffIndexBuild } from '@/lib/rag/vectorStore'
 
 export async function POST(req: NextRequest) {
+  let stage = 'request'
   try {
+    stage = 'authentication'
     const token = await getSessionTokenFromCookies()
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const payload = verifyJwt(token)
     const userId = payload.sub
 
+    stage = 'file parsing'
     const formData = await req.formData()
     const file = formData.get('file') as File | null
     const textContent = formData.get('textContent') as string | null
@@ -111,6 +114,7 @@ export async function POST(req: NextRequest) {
     console.log('[RAG Upload] Starting upload process for:', fileName)
     console.log('[RAG Upload] Extracted text length:', extractedText.length)
 
+    stage = 'database connection'
     const db = await getDb()
     const documents = db.collection('rag_documents')
     const chunksColl = db.collection('rag_chunks')
@@ -129,6 +133,7 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('[RAG Upload] Inserting document record...')
+    stage = 'document insert'
     const insertResult = await documents.insertOne(docRecord)
     const documentId = insertResult.insertedId.toString()
     console.log('[RAG Upload] Document created with ID:', documentId)
@@ -147,6 +152,7 @@ export async function POST(req: NextRequest) {
     const embedStartedAt = Date.now()
 
     const chunkRecords: Array<Record<string, unknown>> = []
+    stage = 'embedding generation'
     for (const [index, chunkTextStr] of textChunks.entries()) {
       try {
         const vector = await generateEmbedding(chunkTextStr)
@@ -188,6 +194,7 @@ export async function POST(req: NextRequest) {
       `[RAG Upload] Embedded ${chunkRecords.length} chunks in ${Date.now() - embedStartedAt}ms`
     )
 
+    stage = 'chunk insert'
     try {
       await chunksColl.insertMany(chunkRecords)
     } catch (dbErr: any) {
@@ -214,7 +221,11 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: any) {
     console.error('[RAG Upload] Error:', error)
-    return NextResponse.json({ error: error.message || 'Failed to upload document' }, { status: 500 })
+    const message = error instanceof Error ? error.message : String(error)
+    return NextResponse.json(
+      { error: `Upload failed during ${stage}: ${message}` },
+      { status: 500 },
+    )
   }
 }
 

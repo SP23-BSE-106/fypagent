@@ -176,10 +176,9 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     throw new Error('Cannot generate an embedding for empty text')
   }
 
-  const extractor = await getExtractor()
-
   let vector: number[]
   try {
+    const extractor = await getExtractor()
     const output = await extractor(input, { pooling: 'mean', normalize: true })
     vector = Array.from(output.data as Float32Array)
   } catch (err) {

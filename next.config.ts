@@ -49,7 +49,8 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/rag/*": [
       "./node_modules/@huggingface/transformers/node_modules/@img/**/*",
-      `./node_modules/onnxruntime-node/bin/*/${process.platform}/${process.arch}/**/*`,
+      // Include the Linux binary used by Vercel even when the build runs on Windows.
+      "./node_modules/onnxruntime-node/bin/**/*",
       "./node_modules/@napi-rs/**/*",
       "./node_modules/pdf-parse/**/*",
       "./node_modules/pdfjs-dist/**/*",

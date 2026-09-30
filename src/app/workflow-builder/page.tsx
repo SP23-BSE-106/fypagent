@@ -348,6 +348,10 @@ function WorkflowBuilderInner() {
 
   // ── Auto-save draft every 3s after changes ───────────────────────────
   const [autoSaveStatus, setAutoSaveStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
+  // Why the last save failed. Without this the only signal is a red "Save
+  // Failed" badge plus a console line that names neither the endpoint nor the
+  // server's reason.
+  const [autoSaveError, setAutoSaveError] = React.useState<string | null>(null);
   const [lastSavedTime, setLastSavedTime] = React.useState<Date | null>(null);
   const initialLoadDone = React.useRef(false);
   const unsavedChanges = React.useRef(false);
@@ -372,6 +376,9 @@ function WorkflowBuilderInner() {
 
     const timer = setTimeout(async () => {
       setAutoSaveStatus("saving");
+      // Computed outside `try` so a thrown request can still name what it was
+      // talking to — a bare "Error:" tells you nothing about which call failed.
+      const saveTarget = agentId ? `PATCH /api/agents/${agentId}` : "POST /api/agents";
       console.log("[AUTO-SAVE] Starting save...", { agentId, nodeCount: nodes.length, edgeCount: edges.length });
       try {
         const draftName = (agentNameFromQuery || "Untitled Draft").trim() || "Untitled Draft";
@@ -394,8 +401,22 @@ function WorkflowBuilderInner() {
         const endpoint = agentId ? `/api/agents/${agentId}` : "/api/agents";
         const method = agentId ? "PATCH" : "POST";
         const body = agentId
-          ? { workflow: workflowPayload, status: "draft", name: draftName }
-          : { name: draftName, description: "Auto-saved draft from the visual builder.", prompt: "", workflow: workflowPayload, status: "draft" };
+          ? // Deliberately no `name` on update. The builder has no name field, so
+            // whatever the URL carries can be stale or belong to a different
+            // agent — sending it would trip the "no two agents share a name"
+            // guard, return 409, and block every future autosave. The stored
+            // name stays the source of truth.
+            { workflow: workflowPayload, status: "draft" }
+          : {
+              name: draftName,
+              description: "Auto-saved draft from the visual builder.",
+              prompt: "",
+              workflow: workflowPayload,
+              status: "draft",
+              // The builder never asks for a name, so it accepts a numbered
+              // variant instead of failing the save on a collision.
+              autoName: true,
+            };
 
         console.log("[AUTO-SAVE] Sending to", endpoint, "with", method);
         const res = await fetch(endpoint, {
@@ -416,20 +437,40 @@ function WorkflowBuilderInner() {
             router.replace(`${window.location.pathname}?${params.toString()}`);
           }
           setAutoSaveStatus("saved");
+          setAutoSaveError(null);
           setLastSavedTime(new Date());
           unsavedChanges.current = false;
           // Reset to idle after 2s
           setTimeout(() => setAutoSaveStatus("idle"), 2000);
         } else {
-          const errData = await res.json().catch(() => ({ error: "Unknown" }));
-          console.error("[AUTO-SAVE] Save failed with status:", res.status, errData);
+          const raw = await res.text().catch(() => "");
+          let reason = raw.slice(0, 400);
+          if (raw.startsWith("{")) {
+            try {
+              const parsed = JSON.parse(raw) as { error?: unknown };
+              if (typeof parsed.error === "string" && parsed.error) reason = parsed.error;
+            } catch {
+              reason = raw.slice(0, 400);
+            }
+          }
+          if (!reason) reason = "empty response body";
+          console.error(`[AUTO-SAVE] ${saveTarget} -> HTTP ${res.status} ${res.statusText}: ${reason}`);
+          setAutoSaveError(`${saveTarget} returned ${res.status}: ${reason}`);
           setAutoSaveStatus("error");
-          setTimeout(() => setAutoSaveStatus("idle"), 3000);
+          setTimeout(() => {
+            setAutoSaveStatus("idle");
+            setAutoSaveError(null);
+          }, 8000);
         }
       } catch (err) {
-        console.error("[AUTO-SAVE] Error:", err);
+        const reason = err instanceof Error ? err.message : String(err);
+        console.error(`[AUTO-SAVE] ${saveTarget} threw: ${reason}`);
+        setAutoSaveError(`${saveTarget} failed: ${reason}`);
         setAutoSaveStatus("error");
-        setTimeout(() => setAutoSaveStatus("idle"), 3000);
+        setTimeout(() => {
+          setAutoSaveStatus("idle");
+          setAutoSaveError(null);
+        }, 8000);
       }
     }, 3000); // 3 second debounce
 
@@ -585,9 +626,11 @@ function WorkflowBuilderInner() {
       const method = agentId ? "PATCH" : "POST";
       const body = agentId
         ? {
+            // No `name` here either — see the autosave. Renaming is not what a
+            // "Save draft" button is for, and sending a name we never displayed
+            // could collide with another agent and fail the save.
             workflow: workflowPayload,
             status: "draft",
-            name: draftName,
           }
         : {
             name: draftName,
@@ -595,6 +638,7 @@ function WorkflowBuilderInner() {
             prompt: "",
             workflow: workflowPayload,
             status: "draft",
+            autoName: true,
           };
 
       const res = await fetch(endpoint, {
@@ -887,6 +931,7 @@ function WorkflowBuilderInner() {
       isSaving={saveBusy}
       onDeploy={() => setLogs((prev) => [...prev, "[SYSTEM] Workflow compiled and deployed to public production endpoint."])}
       autoSaveStatus={autoSaveStatus}
+      autoSaveError={autoSaveError}
       lastSavedTime={lastSavedTime}
     >
       <div className="relative h-full w-full">

@@ -3,6 +3,13 @@ import { ObjectId } from 'mongodb'
 
 import { getDb } from '@/lib/mongo/mongo'
 import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
+import {
+  cleanAgentName,
+  isDuplicateAgentName,
+  isUsableAgentName,
+  normalizeAgentName,
+} from '@/lib/agentName'
+import { listTakenNames, ensureAgentNameIndex, repairLegacyDuplicateNames } from '@/lib/agentNameStore'
 
 async function getAuthenticatedUserId() {
   const token = await getSessionTokenFromCookies()
@@ -86,6 +93,44 @@ export async function PATCH(
   }
 
   const db = await getDb()
+
+  // A rename goes through the same rules as a create — otherwise renaming one
+  // agent onto another would quietly break the "no two agents share a name"
+  // guarantee that POST enforces.
+  if ('name' in update) {
+    const requested = cleanAgentName(update.name)
+
+    if (!requested) {
+      return NextResponse.json({ error: 'name is required' }, { status: 400 })
+    }
+    if (!isUsableAgentName(requested)) {
+      return NextResponse.json(
+        { error: 'Agent names must contain letters or numbers.' },
+        { status: 400 },
+      )
+    }
+
+    // Repaired names must be visible before we compare, otherwise a rename
+    // could be judged against a list that is about to change.
+    await ensureAgentNameIndex(db)
+    await repairLegacyDuplicateNames(db, userId)
+    const taken = await listTakenNames(db, userId, id)
+
+    const clash = taken.find((existing) => isDuplicateAgentName(existing, requested))
+    if (clash) {
+      return NextResponse.json(
+        {
+          error: `You already have an agent named "${clash}". Choose a different name.`,
+          existingName: clash,
+        },
+        { status: 409 },
+      )
+    }
+
+    update.name = requested
+    update.nameNormalized = normalizeAgentName(requested)
+  }
+
   const result = await db
     .collection('agents')
     .findOneAndUpdate(

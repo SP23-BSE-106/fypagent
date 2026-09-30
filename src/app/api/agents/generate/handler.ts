@@ -195,7 +195,9 @@ Do not wrap your response in markdown blocks like \`\`\`json. Just output the ra
           top_p: 1.0,
           stream: false
         }),
-        signal: AbortSignal.timeout(120_000),
+        // Two providers are tried in sequence; each attempt has to finish well
+        // inside the route's 60s budget or the function dies mid-loop.
+        signal: AbortSignal.timeout(25_000),
       })
 
       if (inferenceRes.ok) {
@@ -224,8 +226,19 @@ Do not wrap your response in markdown blocks like \`\`\`json. Just output the ra
     return fallbackWorkflowResponse(prompt, detail || `status ${inferenceRes.status}`)
   }
 
-  const data = await inferenceRes.json()
-  
+  // A provider can answer with HTML or an empty body; without this guard that
+  // throws past the fallback logic and the caller gets a 500 instead of the
+  // mock workflow the handler is designed to return.
+  const data = (await inferenceRes.json().catch((parseError) => {
+    console.warn('[generate] Inference API returned a non-JSON body - using fallback workflow.', parseError)
+    return null
+  })) as { choices?: Array<{ message?: { content?: string } }> } | null
+
+  if (!data) {
+    await new Promise((r) => setTimeout(r, 1200))
+    return fallbackWorkflowResponse(prompt, 'non-JSON response payload')
+  }
+
   let workflow = null;
   try {
     const content = data.choices?.[0]?.message?.content || "";

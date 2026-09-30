@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
 import { generateEmbedding } from '@/lib/rag/embeddings'
 import { searchChunks } from '@/lib/rag/vectorStore'
+import { chatCompletion } from '@/lib/llm'
 
 /**
  * POST /api/rag/chat
@@ -30,7 +31,11 @@ export async function POST(req: NextRequest) {
     // ── Step 1: RAG Retrieval ──────────────────────────────────────────────
     let ragContext = ''
     let ragSources: { text: string; similarity: number; documentId: string }[] = []
-    let debugInfo = { userId, chunksFound: 0, embeddingError: null as any }
+    const debugInfo: { userId: string; chunksFound: number; embeddingError: string | null } = {
+      userId,
+      chunksFound: 0,
+      embeddingError: null,
+    }
 
     try {
       const queryVector = await generateEmbedding(question)
@@ -63,108 +68,40 @@ ${ragContext}
 
     // Optional third LLM endpoint. (Embeddings no longer use this key — they
     // are generated locally by the model in src/lib/rag/embeddings.ts.)
-    const kimiApiKey = process.env.KIMI_API_KEY || process.env.MOONSHOT_API_KEY
+    // The provider walk itself lives in src/lib/llm.ts, shared with /api/execute.
+    const completion = await chatCompletion({
+      system: systemPrompt,
+      prompt: question,
+      // Comfortably inside the route's 60s budget once embedding and vector
+      // search have already run.
+      timeoutMs: 30_000,
+    })
 
-    let answer = ''
-
-    // Determine which LLM endpoint + key to use
-    // HuggingFace (primary) -> NVIDIA (fallback) -> Moonshot direct (fallback)
-    const endpoints = [
-      {
-        url: 'https://router.huggingface.co/v1/chat/completions',
-        key: process.env.HF_TOKEN,
-        model: 'moonshotai/Kimi-K3:together',
-        name: 'HuggingFace (Kimi K3)'
-      },
-      {
-        url: 'https://integrate.api.nvidia.com/v1/chat/completions',
-        key: process.env.NVIDIA_API_KEY,
-        model: 'moonshotai/kimi-k3',
-        name: 'NVIDIA (Kimi K3)'
-      },
-      ...(kimiApiKey
-        ? [{
-          url: 'https://api.moonshot.cn/v1/chat/completions',
-          key: kimiApiKey,
-          model: 'moonshot-v1-8k',
-          name: 'Moonshot Direct'
-        }]
-        : [])
-    ]
-
-    try {
-      let inferenceRes: Response | null = null
-
-      for (const ep of endpoints) {
-        if (!ep.key) {
-          console.warn(`[rag/chat] ${ep.name} API key not configured, skipping...`)
-          continue
-        }
-
-        try {
-          console.log(`[rag/chat] Trying ${ep.name}...`)
-          inferenceRes = await fetch(ep.url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${ep.key}`,
-              'Accept': 'application/json',
-            },
-            body: JSON.stringify({
-              model: ep.model,
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: question },
-              ],
-              max_tokens: 1024,
-              temperature: 0.4,
-              top_p: 0.95,
-              stream: false,
-            }),
-            signal: AbortSignal.timeout(60_000),
-          })
-
-          if (inferenceRes.ok) {
-            console.log(`[rag/chat] ${ep.name} succeeded`)
-            break // success, stop trying
-          }
-          console.warn(`[rag/chat] ${ep.name} returned ${inferenceRes.status}, trying next...`)
-        } catch (epErr) {
-          console.warn(`[rag/chat] ${ep.name} failed:`, epErr)
-        }
-      }
-
-      if (inferenceRes && inferenceRes.ok) {
-        const data = await inferenceRes.json()
-        answer = data?.choices?.[0]?.message?.content || 'No response generated.'
-      } else {
-        const errText = inferenceRes ? await inferenceRes.text().catch(() => 'Unknown error') : 'All endpoints failed'
-        console.warn('[rag/chat] All LLM endpoints failed:', errText)
-        // Fallback: return the raw context
-        answer = ragContext
-          ? `[LLM unavailable — showing matched knowledge base content]\n\n${ragContext}`
-          : 'The AI model is temporarily unavailable. Please try again shortly.'
-      }
-    } catch (llmError) {
-      console.warn('[rag/chat] LLM call failed:', llmError)
-      answer = ragContext
+    const answer = completion.ok
+      ? completion.text
+      : ragContext
         ? `[LLM unavailable — showing matched knowledge base content]\n\n${ragContext}`
         : 'The AI model is temporarily unavailable. Please try again shortly.'
+
+    if (!completion.ok) {
+      console.warn('[rag/chat] no inference provider accepted the request')
     }
 
     return NextResponse.json({
       question,
       answer,
+      model: completion.model,
+      provider: completion.provider,
       sources: ragSources.map((s) => ({
         text: s.text.slice(0, 200) + (s.text.length > 200 ? '...' : ''),
         similarity: s.similarity,
         documentId: s.documentId,
       })),
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('RAG Chat Error:', error)
     return NextResponse.json(
-      { error: error.message || 'RAG chat failed' },
+      { error: error instanceof Error ? error.message || 'RAG chat failed' : 'RAG chat failed' },
       { status: 500 }
     )
   }

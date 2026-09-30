@@ -10,5 +10,8 @@
     "outDir": "./out",
     "rootDir": "../../src"
   },
-  "include": ["../../src/lib/workflow/kimiEngine.ts"]
+  "include": [
+    "../../src/lib/workflow/kimiEngine.ts",
+    "../../src/lib/agentName.ts"
+  ]
 }

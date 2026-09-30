@@ -6,6 +6,12 @@ import * as generate from '../generate/handler'
 import * as root from '../handler'
 import * as byId from '../[id]/handler'
 
+// Workflow generation calls a model end to end. Without an explicit budget
+// Vercel applies its default, which is shorter than the request below — the
+// function would be killed and the caller would see a 504 instead of the
+// fallback the handler already knows how to produce.
+export const maxDuration = 60
+
 type Handler = (request: NextRequest, ctx?: unknown) => Promise<Response> | Response
 
 /**

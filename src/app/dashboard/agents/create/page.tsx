@@ -14,6 +14,13 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import type { WorkflowGraph, WorkflowNode, NodeType } from "@/lib/mongo/workflow";
+import {
+  agentNameFromPrompt,
+  cleanAgentName,
+  isDuplicateAgentName,
+  isUsableAgentName,
+  nextAvailableAgentName,
+} from "@/lib/agentName";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -154,6 +161,32 @@ export default function CreateAgentPage() {
   const [savedAgent, setSavedAgent] = React.useState<{ _id: string; name: string } | null>(null);
   const [isMock, setIsMock] = React.useState(false);
 
+  // Names this user already owns, so a duplicate is flagged while typing
+  // instead of only after the save round-trip.
+  const [existingNames, setExistingNames] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch("/api/agents", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((list) => {
+        if (!cancelled && Array.isArray(list)) {
+          setExistingNames(list.map((a: { name?: string }) => cleanAgentName(a.name)).filter(Boolean));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const cleanedName = cleanAgentName(agentName);
+  const nameIsUsable = isUsableAgentName(cleanedName);
+  const duplicateName =
+    cleanedName.length === 0
+      ? null
+      : existingNames.find((existing) => isDuplicateAgentName(existing, cleanedName)) ?? null;
+
   // ── Typewriter log lines while generating ──────────────────────────────────
   const [logLines, setLogLines] = React.useState<string[]>([]);
   const logTimers = React.useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -260,11 +293,16 @@ export default function CreateAgentPage() {
       clearLog();
       setIsMock(!!data._mock);
       setWorkflow(data.workflow as WorkflowGraph);
-      // Pre-fill agent name from workflow name if provided
-      if (data.workflow?.name) {
-        setAgentName(data.workflow.name);
-        setAgentDesc(data.workflow.description ?? "");
-      }
+      setAgentDesc((prev) => (data.workflow?.name ? data.workflow.description ?? "" : prev));
+
+      // Always re-derive the name. Carrying over whatever was typed for the
+      // previous prompt is how agents end up with titles that describe nothing
+      // — and the suggested name is checked against the ones already saved, so
+      // the pre-filled value is usable without editing.
+      const suggested =
+        cleanAgentName(data.workflow?.name) || agentNameFromPrompt(prompt, "New Agent");
+      setAgentName(nextAvailableAgentName(suggested, existingNames));
+
       setStep(2);
     } catch (err) {
       clearLog();
@@ -278,8 +316,12 @@ export default function CreateAgentPage() {
   const handleSave = async () => {
     if (!workflow || saving) return;
     setSaveError(null);
-    if (!agentName.trim()) {
-      setSaveError("Please enter a name for the agent.");
+    if (!nameIsUsable) {
+      setSaveError("Give the agent a name that contains letters or numbers.");
+      return;
+    }
+    if (duplicateName) {
+      setSaveError(`You already have an agent named "${duplicateName}". Choose a different name.`);
       return;
     }
 
@@ -289,7 +331,7 @@ export default function CreateAgentPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: agentName,
+          name: cleanedName,
           description: agentDesc,
           prompt,
           workflow,
@@ -595,7 +637,11 @@ export default function CreateAgentPage() {
                   <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
                   Back
                 </Button>
-                <Button onClick={handleSave} isLoading={saving} disabled={!agentName.trim() || saving}>
+                <Button
+                  onClick={handleSave}
+                  isLoading={saving}
+                  disabled={!nameIsUsable || Boolean(duplicateName) || saving}
+                >
                   <Save className="h-3.5 w-3.5 mr-1.5" />
                   Save Agent
                 </Button>
@@ -626,9 +672,25 @@ export default function CreateAgentPage() {
                     className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-xs text-foreground placeholder:text-muted/50 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/30"
                     placeholder="My Support Agent"
                     value={agentName}
-                    onChange={(e) => setAgentName(e.target.value)}
+                    onChange={(e) => {
+                      setAgentName(e.target.value);
+                      setSaveError(null);
+                    }}
                     autoComplete="off"
+                    aria-invalid={Boolean(duplicateName) || (agentName.length > 0 && !nameIsUsable)}
                   />
+                  {duplicateName && (
+                    <p className="flex items-center gap-1.5 text-[10px] text-red-400" role="alert">
+                      <AlertTriangle className="h-3 w-3 shrink-0" />
+                      You already have an agent named &ldquo;{duplicateName}&rdquo;.
+                    </p>
+                  )}
+                  {!duplicateName && agentName.length > 0 && !nameIsUsable && (
+                    <p className="flex items-center gap-1.5 text-[10px] text-red-400" role="alert">
+                      <AlertTriangle className="h-3 w-3 shrink-0" />
+                      The name needs at least one letter or number.
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">

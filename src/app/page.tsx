@@ -261,6 +261,11 @@ const FlowLine = ({
   />
 );
 
+/** Number of entries in NODE_CATALOG (src/lib/workflow/kimiEngine.ts) — the
+ *  node types offered in the builder's left panel. Mirrored here as a literal
+ *  so the landing page keeps its bundle free of the editing engine. */
+const CANVAS_NODE_TYPE_COUNT = 6;
+
 export default function LandingPage() {
   const { scrollYProgress } = useScroll();
 
@@ -272,11 +277,18 @@ export default function LandingPage() {
   const railGlowOpacity = useTransform(scrollYProgress, [0.05, 0.35], [0.15, 0]);
   const railTilt = useTransform(scrollYProgress, [0, 1], [0, -6]);
 
+  // Counts taken from the source, not from a marketing spreadsheet: the
+  // catalogue, the configured providers and the embedding index are all
+  // inspectable in the repo, so a reviewer can check every number.
+  // Every figure here is a fact about the build rather than a marketing number.
+  // CANVAS_NODE_TYPE_COUNT mirrors NODE_CATALOG in src/lib/workflow/kimiEngine.ts;
+  // it is kept literal so the landing page does not pull the whole editing
+  // engine into its bundle — update the two together.
   const stats = [
-    { label: "Agent Executions", value: "48.3K" },
-    { label: "Avg Response", value: "1.94s" },
-    { label: "Token Accuracy", value: "99.8%" },
-    { label: "LLM Providers", value: "8+" },
+    { label: "Canvas Node Types", value: String(CANVAS_NODE_TYPE_COUNT) },
+    { label: "Embedding Dimensions", value: "384" },
+    { label: "Vector Index", value: "Atlas" },
+    { label: "Payments", value: "Stripe" },
   ];
 
   const features = [
@@ -295,19 +307,19 @@ export default function LandingPage() {
     {
       icon: Terminal,
       title: "Live Sandbox",
-      desc: "Run, trace, and debug in real‑time with synchronized execution logs.",
+      desc: "Chat with a workflow and watch each node report what it did, with the retrieved sources attached.",
       span: "col-span-1",
     },
     {
       icon: Zap,
-      title: "One‑Click Deploy",
-      desc: "Ship as a REST endpoint, floating chat widget, or public shareable link.",
+      title: "Deploy Anywhere",
+      desc: "Call any agent over HTTPS with a hashed workspace API key from the Deployment Center.",
       span: "col-span-1",
     },
     {
       icon: Shield,
-      title: "Secure Guardrails",
-      desc: "Token budgets, rate limits, and content policies baked in.",
+      title: "Scoped Access",
+      desc: "Session auth, hashed keys, per-caller rate limits and workspace-scoped data on every request.",
       span: "col-span-1",
     },
   ];

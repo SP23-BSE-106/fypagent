@@ -433,6 +433,64 @@ t("a capitalised prompt never becomes a silent non-edit", () => {
   }
 });
 
+// ── Agent naming rules ──────────────────────────────────────────────────────
+// The create form, the builder autosave and the API all route through these,
+// so a change here changes what can be saved.
+const N = require('./out/lib/agentName.js');
+
+const NAMING_CASES = [
+  ['cleanAgentName collapses runs of whitespace', () => {
+    eq(N.cleanAgentName('  Support   Bot\n'), 'Support Bot');
+    eq(N.cleanAgentName(undefined), '');
+    assert(N.cleanAgentName('x'.repeat(300)).length <= 80, 'length cap');
+  }],
+  ['names without a letter or digit are rejected', () => {
+    assert(!N.isUsableAgentName(''), 'empty');
+    assert(!N.isUsableAgentName('   '), 'whitespace');
+    assert(!N.isUsableAgentName('🤖'), 'emoji only');
+    assert(!N.isUsableAgentName('!@#$'), 'punctuation only');
+    assert(!N.isUsableAgentName('---'), 'dashes only');
+    assert(N.isUsableAgentName('Support Bot'), 'plain name');
+    assert(N.isUsableAgentName('Bot 2'), 'name with a digit');
+    assert(N.isUsableAgentName('مرحبا'), 'non-latin script');
+  }],
+  ['duplicates compare case- and whitespace-insensitively', () => {
+    assert(N.isDuplicateAgentName('Support Bot', 'support   bot'), 'case/space variants match');
+    assert(N.isDuplicateAgentName('Bot', ' Bot '), 'leading space matches');
+    assert(!N.isDuplicateAgentName('Bot', 'Bot 2'), 'suffixed names differ');
+    assert(!N.isDuplicateAgentName('Bot', 'Helper'), 'different names');
+    assert(!N.isDuplicateAgentName('', ''), 'two empty names are not a duplicate');
+  }],
+  ['a name is derived from the prompt', () => {
+    eq(N.agentNameFromPrompt('summarise support tickets'), 'Summarise Support Tickets Agent');
+    eq(N.agentNameFromPrompt('the support bot'), 'Support Bot Agent', 'stop words dropped');
+    eq(N.agentNameFromPrompt('', 'Fallback'), 'Fallback', 'empty prompt falls back');
+    eq(N.agentNameFromPrompt('🤖🤖🤖', 'Fallback'), 'Fallback', 'emoji-only prompt falls back');
+    assert(N.agentNameFromPrompt('a b c d e f g h').split(' ').length <= 6, 'capped word count');
+  }],
+  ['colliding names get a readable number, not a rejection', () => {
+    eq(N.nextAvailableAgentName('Support Bot', []), 'Support Bot');
+    eq(N.nextAvailableAgentName('Support Bot', ['Support Bot']), 'Support Bot (2)');
+    eq(N.nextAvailableAgentName('Support Bot', ['Support Bot', 'Support Bot (2)']), 'Support Bot (3)');
+    // The taken list is compared on the same key as an existing duplicate check.
+    eq(N.nextAvailableAgentName('Support Bot', ['support bot']), 'Support Bot (2)');
+    assert(
+      !N.isDuplicateAgentName(N.nextAvailableAgentName('Bot', ['Bot', 'Bot (2)']), 'Bot'),
+      'result is never the original name',
+    );
+  }],
+  ['an auto-named agent never duplicates anything already saved', () => {
+    const taken = ['Untitled Draft', 'Untitled Draft (2)', 'Untitled Draft (3)'];
+    const produced = N.nextAvailableAgentName('Untitled Draft', taken);
+    assert(!taken.some((t) => N.isDuplicateAgentName(t, produced)), 'not in the taken list');
+    eq(produced, 'Untitled Draft (4)');
+  }],
+];
+
+for (const [label, fn] of NAMING_CASES) {
+  t(label, fn);
+}
+
 // ── REPORT ───────────────────────────────────────────────────────────────
 const total = pass + failures.length;
 console.log(`\n${pass}/${total} passed`);

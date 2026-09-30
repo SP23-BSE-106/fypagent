@@ -19,6 +19,8 @@ interface BuilderLayoutProps {
   isRunning?: boolean;
   isSaving?: boolean;
   autoSaveStatus?: "idle" | "saving" | "saved" | "error";
+  /** Server's reason for the last failed save, shown verbatim when it fails. */
+  autoSaveError?: string | null;
   lastSavedTime?: Date | null;
 }
 
@@ -35,6 +37,7 @@ export const BuilderLayout: React.FC<BuilderLayoutProps> = ({
   isRunning = false,
   isSaving = false,
   autoSaveStatus = "idle",
+  autoSaveError = null,
   lastSavedTime = null,
 }) => {
   const [showLogs, setShowLogs] = React.useState(true);
@@ -97,7 +100,9 @@ export const BuilderLayout: React.FC<BuilderLayoutProps> = ({
               autoSaveStatus === "saving" && "bg-accent/20 text-accent",
               autoSaveStatus === "saved" && "bg-green-500/20 text-green-400",
               autoSaveStatus === "error" && "bg-red-500/20 text-red-400"
-            )}>
+            )}
+            title={autoSaveError ?? undefined}
+          >
               {autoSaveStatus === "saving" && (
                 <>
                   <span className="h-1.5 w-1.5 rounded-full bg-accent animate-spin" />
@@ -132,6 +137,20 @@ export const BuilderLayout: React.FC<BuilderLayoutProps> = ({
           )}
         </div>
       </header>
+
+      {/* A failed auto-save must say why — "Save Failed" alone sends you to the
+          console with no endpoint, no status text and no server message. */}
+      {autoSaveStatus === "error" && autoSaveError && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-red-500/25 bg-red-500/10 px-4 py-2 text-[11px] text-red-300"
+        >
+          <span className="font-semibold shrink-0">Auto-save failed — your last change was not written.</span>
+          <span className="truncate" title={autoSaveError}>
+            {autoSaveError}
+          </span>
+        </div>
+      )}
 
       {/* Main Body Panels */}
       <div className="flex-1 flex min-h-0 relative">

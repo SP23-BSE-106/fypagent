@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:workflow": "tsc -p tests/kimi-engine/tsconfig.json && node tests/kimi-engine/test.js"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.0",

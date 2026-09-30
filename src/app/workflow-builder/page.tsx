@@ -11,6 +11,7 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   addEdge,
+  useReactFlow,
   Node,
   Edge,
   Handle,
@@ -22,18 +23,99 @@ import "reactflow/dist/style.css";
 import { BuilderLayout } from "@/components/layout/BuilderLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Cpu, GitBranch, Terminal, Database, Trash2, Zap, Sliders, Send, Bot } from "lucide-react";
+import {
+  Cpu,
+  GitBranch,
+  Terminal,
+  Database,
+  Trash2,
+  Zap,
+  Sliders,
+  Send,
+  Bot,
+  Plus,
+  Undo2,
+  X,
+  ChevronDown,
+} from "lucide-react";
+import {
+  NODE_CATALOG,
+  QUICK_COMMANDS,
+  applyActions,
+  labelOf,
+  planAddNode,
+  runKimiCommand,
+  toCanvasType,
+  toPersistedType,
+} from "@/lib/workflow/kimiEngine";
+
+/**
+ * The glyph for a node kind. Deliberately a switch rather than a lookup table:
+ * resolving an icon through a map builds the component reference during render,
+ * which is exactly what react-hooks/static-components warns about.
+ */
+const TypeIcon = ({ type, className }: { type?: string; className?: string }) => {
+  switch (type) {
+    case "Input":
+      return <Zap className={className} />;
+    case "LLM Node":
+      return <Cpu className={className} />;
+    case "RAG Node":
+      return <Database className={className} />;
+    case "API Node":
+    case "Condition":
+      return <GitBranch className={className} />;
+    case "Output":
+      return <Terminal className={className} />;
+    default:
+      return <Cpu className={className} />;
+  }
+};
+
+/**
+ * Fits the viewport to whatever is on the canvas. Lives *inside* ReactFlow so
+ * it can reach `useReactFlow`, and only runs when the token changes — adding a
+ * node from the library or from Kimi would otherwise drop it out of view.
+ */
+const AutoFit = ({ token }: { token: number }) => {
+  const { fitView } = useReactFlow();
+  React.useEffect(() => {
+    if (token > 0) void fitView({ padding: 0.3, duration: 300 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+  return null;
+};
 
 // Custom node styling layout matching Vercel/Linear
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const CustomNodeComponent = ({ data, selected }: { data: any; selected: boolean }) => {
-  const Icon = data.icon;
+const CustomNodeComponent = ({ id, data, selected }: { id: string; data: any; selected: boolean }) => {
+  const { deleteElements } = useReactFlow();
+
+  /** Deleting from the card itself, without a trip through the side panel.
+   *  React Flow removes the attached edges along with the node. */
+  const handleCardDelete = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    deleteElements({ nodes: [{ id }] });
+  };
+
   return (
     <div
-      className={`rounded-lg border bg-[#131A23] p-3 text-left w-52 transition-all duration-300 ${
+      className={`group relative rounded-lg border bg-[#131A23] p-3 text-left w-52 transition-all duration-300 ${
         selected ? "border-accent shadow-[0_0_15px_rgba(91,231,196,0.15)]" : "border-border/80 hover:border-border-light"
       }`}
     >
+      <button
+        type="button"
+        data-card-control
+        aria-label={`Delete ${data.label}`}
+        title={`Delete ${data.label}`}
+        onClick={handleCardDelete}
+        onMouseDown={(e) => e.stopPropagation()}
+        className="nodrag nopan absolute -right-2.5 -top-2.5 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-border/80 bg-[#131A23] text-muted opacity-60 shadow-lg transition-all duration-200 hover:border-red-500/60 hover:bg-[#131A23] hover:text-red-400 focus-visible:opacity-100 focus-visible:outline-none group-hover:opacity-100"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+
       {/* Top Handles */}
       {data.type !== "Input" && (
         <Handle
@@ -43,10 +125,10 @@ const CustomNodeComponent = ({ data, selected }: { data: any; selected: boolean 
         />
       )}
 
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2 pr-4">
         <div className="flex items-center gap-2">
           <div className="h-6.5 w-6.5 rounded bg-accent-muted flex items-center justify-center text-accent">
-            <Icon className="h-3.5 w-3.5" />
+            <TypeIcon type={data.type} className="h-3.5 w-3.5" />
           </div>
           <div className="flex flex-col text-left">
             <span className="text-[11px] font-bold text-foreground leading-none">{data.label}</span>
@@ -85,27 +167,16 @@ const initialEdges: Edge[] = [];
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapWorkflowToCanvas(workflow: any) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const typeIcons: Record<string, { type: string; icon: any }> = {
-    trigger: { type: "Input", icon: Zap },
-    llm: { type: "LLM Node", icon: Cpu },
-    rag: { type: "RAG Node", icon: Database },
-    api: { type: "API Node", icon: GitBranch },
-    condition: { type: "Condition", icon: GitBranch },
-    output: { type: "Output", icon: Terminal },
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mappedNodes: Node[] = (workflow?.nodes || []).map((n: any, i: number) => {
-    const mapInfo = typeIcons[n.type] || { type: "LLM Node", icon: Cpu };
+    const entry = toCanvasType(n.type);
     return {
       id: n.id,
       type: "customNode",
       position: { x: 260 + (i % 2) * 240, y: 80 + Math.floor(i / 2) * 180 },
       data: {
         label: n.name,
-        type: mapInfo.type,
+        type: entry.type,
         description: n.description,
-        icon: mapInfo.icon,
       },
     };
   });
@@ -128,23 +199,75 @@ function WorkflowBuilderInner() {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const [selectedNode, setSelectedNode] = React.useState<Node | null>(null);
   const [isRunning, setIsRunning] = React.useState(false);
+
+  // Selection is derived from React Flow's own `selected` flags instead of a
+  // separate copy, so it can never go stale after a delete, a rename or an edit
+  // made from the assistant.
+  const selectedNodes = React.useMemo(() => nodes.filter((n) => n.selected), [nodes]);
+  const selectedEdges = React.useMemo(() => edges.filter((e) => e.selected), [edges]);
+  const selectedNode = selectedNodes[0] ?? null;
+  const hasSelection = selectedNodes.length > 0 || selectedEdges.length > 0;
 
   const [saveBusy, setSaveBusy] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
   const [assistantInput, setAssistantInput] = React.useState("");
-  const [assistantBusy, setAssistantBusy] = React.useState(false);
+  const [addMenuOpen, setAddMenuOpen] = React.useState(false);
+  const [fitToken, setFitToken] = React.useState(0);
+  const [canUndo, setCanUndo] = React.useState(false);
   const [assistantMessages, setAssistantMessages] = React.useState<Array<{ role: "assistant" | "user"; content: string }>>([
     {
       role: "assistant",
-      content: "Kimi is ready. Ask me to add, remove, or rename nodes and I’ll update the canvas instantly.",
+      content: "Kimi is ready. Ask me to add, remove, rename or connect nodes and I'll update the canvas instantly.",
     },
   ]);
   const [logs, setLogs] = React.useState<string[]>([
     "[SYSTEM] Workflow canvas initialized.",
     "[SYSTEM] Waiting for a workflow or a prompt from Kimi Assistant...",
   ]);
+
+  // ── Undo history ────────────────────────────────────────────────────────
+  // A snapshot is taken only for structural changes (a node or an edge appearing
+  // or disappearing), plus Kimi renames. Dragging a card or typing in the name
+  // field therefore cannot bury the useful history under keystrokes.
+  const historyRef = React.useRef<Array<{ nodes: Node[]; edges: Edge[] }>>([]);
+  const prevGraphRef = React.useRef<{ nodes: Node[]; edges: Edge[] }>({ nodes: initialNodes, edges: initialEdges });
+  const suppressHistoryRef = React.useRef(false);
+  const lastHandledRenameRef = React.useRef(0);
+
+  // A rename from Kimi leaves the node count untouched, so it needs its own
+  // signal rather than being inferred from the graph's shape. Kept as state
+  // because this is the value the effect below watches.
+  const [renameRequest, setRenameRequest] = React.useState(0);
+
+  React.useEffect(() => {
+    const previous = prevGraphRef.current;
+    const structural = previous.nodes.length !== nodes.length || previous.edges.length !== edges.length;
+    const labelEdit = renameRequest !== lastHandledRenameRef.current;
+
+    if (suppressHistoryRef.current) {
+      suppressHistoryRef.current = false;
+    } else if (structural || labelEdit) {
+      historyRef.current.push(previous);
+      if (historyRef.current.length > 50) historyRef.current.shift();
+      setCanUndo(historyRef.current.length > 0);
+    }
+
+    lastHandledRenameRef.current = renameRequest;
+    prevGraphRef.current = { nodes, edges };
+  }, [nodes, edges, renameRequest]);
+
+  /** Close the floating add-node menu when clicking anywhere outside it. */
+  React.useEffect(() => {
+    if (!addMenuOpen) return undefined;
+    const onDocClick = (event: MouseEvent) => {
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (target && target.closest("[data-add-menu]")) return;
+      setAddMenuOpen(false);
+    };
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, [addMenuOpen]);
 
   // Track if workflow has been loaded from persistent storage
   const workflowLoadedFromStorage = React.useRef(false);
@@ -156,6 +279,11 @@ function WorkflowBuilderInner() {
     const loadWorkflow = (workflow: any) => {
       console.log("[LOAD] Loading workflow:", workflow);
       const { nodes: mappedNodes, edges: mappedEdges } = mapWorkflowToCanvas(workflow);
+      // The loaded graph becomes the new baseline: undo should not be able to
+      // wipe it back to an empty canvas.
+      historyRef.current = [];
+      suppressHistoryRef.current = true;
+      setCanUndo(false);
       setNodes(mappedNodes);
       setEdges(mappedEdges);
       workflowLoadedFromStorage.current = true;
@@ -165,7 +293,7 @@ function WorkflowBuilderInner() {
 
     if (workflowFromQuery) {
       try {
-        const parsed = JSON.parse(decodeURIComponent(workflowFromQuery));
+        const parsed = JSON.parse(workflowFromQuery);
         loadWorkflow(parsed);
         return;
       } catch (error) {
@@ -253,7 +381,7 @@ function WorkflowBuilderInner() {
           nodes: nodes.map((node) => ({
             id: node.id,
             name: node.data?.label ?? "Untitled",
-            type: node.data?.type === "Input" ? "trigger" : node.data?.type === "Output" ? "output" : node.data?.type === "RAG Node" ? "rag" : node.data?.type === "Condition" ? "condition" : node.data?.type === "API Node" ? "api" : "llm",
+            type: toPersistedType(node.data?.type),
             description: node.data?.description ?? "",
           })),
           edges: edges.map((edge) => ({
@@ -329,14 +457,13 @@ function WorkflowBuilderInner() {
     [setEdges]
   );
 
-  // Catch node selection
-  const onNodeClick = React.useCallback((event: React.MouseEvent, node: Node) => {
-    setSelectedNode(node);
-  }, []);
-
+  // Clicking empty canvas clears the selection. Only touch the array when
+  // something is actually selected, so a stray click cannot trigger a save.
   const onPaneClick = React.useCallback(() => {
-    setSelectedNode(null);
-  }, []);
+    setNodes((nds) =>
+      nds.some((n) => n.selected) ? nds.map((n) => (n.selected ? { ...n, selected: false } : n)) : nds,
+    );
+  }, [setNodes]);
 
   // Run execution simulation
   const handleRun = () => {
@@ -362,33 +489,73 @@ function WorkflowBuilderInner() {
     });
   };
 
-  const handleAddNode = (type: string) => {
-    const id = (nodes.length + 1).toString();
-    const icons = { Input: Zap, "LLM Node": Cpu, "RAG Node": Database, "API Node": GitBranch, Output: Terminal };
-    const label = `New ${type}`;
-    
-    const newNode: Node = {
-      id,
-      type: "customNode",
-      position: { x: 100 + Math.random() * 200, y: 150 + Math.random() * 200 },
-      data: {
-        label,
-        type,
-        description: `Set up details configuration inside parameters panel.`,
-        icon: (icons as any)[type] || Cpu,
-      },
-    };
+  /**
+   * Everything the assistant needs to reason about the canvas right now.
+   * Reads component state only — no refs — so it stays safe to hand to handlers.
+   */
+  const graphSnapshot = () => ({
+    nodes,
+    edges,
+    selectedId: selectedNode?.id ?? null,
+    // The engine only needs to know whether "undo" is a real option.
+    historyDepth: canUndo ? 1 : 0,
+  });
 
-    setNodes((nds) => [...nds, newNode]);
-    setLogs((prev) => [...prev, `[SYSTEM] Added new ${type} node to canvas.`]);
+  /** Add a node of `type`, on a free grid slot with a unique id and title. */
+  const handleAddNode = (type: string) => {
+    const graph = graphSnapshot();
+    const actions = planAddNode(graph, { type });
+    const next = applyActions(graph, actions);
+    const created = actions.find((a) => a.kind === "add-node");
+    const title = created && created.kind === "add-node" ? labelOf(created.node) : type;
+
+    setNodes(next.nodes);
+    setEdges(next.edges);
+    setFitToken((t) => t + 1);
+    setLogs((prev) => [...prev, `[SYSTEM] Added ${type} node '${title}' to the canvas.`]);
   };
 
-  const handleDeleteNode = () => {
-    if (!selectedNode) return;
-    setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
-    setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
-    setLogs((prev) => [...prev, `[SYSTEM] Deleted node '${selectedNode.data.label}' from canvas.`]);
-    setSelectedNode(null);
+  /**
+   * Delete whatever is selected: nodes (React Flow drops their edges too) or
+   * loose connections. Shared by the canvas toolbar and the panel's Remove Node
+   * button so there is one deletion path.
+   */
+  const handleDeleteSelection = () => {
+    if (selectedNodes.length > 0) {
+      const ids = new Set(selectedNodes.map((n) => n.id));
+      const titles = selectedNodes.map((n) => `'${labelOf(n) || "(untitled)"}'`).join(", ");
+      const lost = edges.filter((e) => ids.has(e.source) || ids.has(e.target)).length;
+
+      setNodes((nds) => nds.filter((n) => !ids.has(n.id)));
+      setEdges((eds) => eds.filter((e) => !ids.has(e.source) && !ids.has(e.target)));
+      setLogs((prev) => [
+        ...prev,
+        `[SYSTEM] Removed ${titles}${lost ? ` and ${lost} connection${lost === 1 ? "" : "s"}` : ""}.`,
+      ]);
+      return;
+    }
+
+    if (selectedEdges.length > 0) {
+      const ids = new Set(selectedEdges.map((e) => e.id));
+      setEdges((eds) => eds.filter((e) => !ids.has(e.id)));
+      setLogs((prev) => [...prev, `[SYSTEM] Removed ${ids.size} connection${ids.size === 1 ? "" : "s"}.`]);
+    }
+  };
+
+  /** Step back to the graph as it was before the last structural edit. */
+  const handleUndo = () => {
+    const previous = historyRef.current[historyRef.current.length - 1];
+    if (!previous) return;
+
+    const unchanged = previous.nodes === nodes && previous.edges === edges;
+    historyRef.current.pop();
+    setCanUndo(historyRef.current.length > 0);
+    if (unchanged) return;
+
+    suppressHistoryRef.current = true;
+    setNodes(previous.nodes);
+    setEdges(previous.edges);
+    setLogs((prev) => [...prev, "[SYSTEM] Undo: restored the previous canvas state."]);
   };
 
   const handleSaveDraft = async () => {
@@ -404,7 +571,7 @@ function WorkflowBuilderInner() {
         nodes: nodes.map((node) => ({
           id: node.id,
           name: node.data?.label ?? "Untitled",
-          type: node.data?.type === "Input" ? "trigger" : node.data?.type === "Output" ? "output" : node.data?.type === "RAG Node" ? "rag" : node.data?.type === "Condition" ? "condition" : node.data?.type === "API Node" ? "api" : "llm",
+          type: toPersistedType(node.data?.type),
           description: node.data?.description ?? "",
         })),
         edges: edges.map((edge) => ({
@@ -458,77 +625,52 @@ function WorkflowBuilderInner() {
     }
   };
 
-  const handleAssistantSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    const promptText = assistantInput.trim();
+  /**
+   * Ask the deterministic engine what this prompt means, then apply whatever it
+   * comes back with. The engine never guesses: if a reference resolves to zero
+   * or several nodes it says so and returns no actions, which is what keeps the
+   * canvas from drifting every time the prompt is something it didn't expect.
+   */
+  const submitPrompt = (raw: string) => {
+    const promptText = raw.trim();
     if (!promptText) return;
 
-    setAssistantBusy(true);
     setAssistantMessages((prev) => [...prev, { role: "user", content: promptText }]);
+    setAssistantInput("");
 
-    const lower = promptText.toLowerCase();
-    const nodeTypeMatch = /(trigger|llm|rag|api|condition|output)/i.exec(lower);
-    const typeKey = nodeTypeMatch?.[1]?.toLowerCase() || "llm";
-    const typeMap: Record<string, string> = {
-      trigger: "Input",
-      llm: "LLM Node",
-      rag: "RAG Node",
-      api: "API Node",
-      condition: "Condition",
-      output: "Output",
-    };
+    const graph = graphSnapshot();
+    const result = runKimiCommand(promptText, graph);
+    const firstLine = result.reply.split("\n")[0];
+    setLogs((prev) => [...prev, `[KIMI] ${firstLine}`]);
 
-    const icons = { Input: Zap, "LLM Node": Cpu, "RAG Node": Database, "API Node": GitBranch, Output: Terminal, Condition: GitBranch };
+    const wantsUndo = result.actions.some((a) => a.kind === "undo");
+    if (wantsUndo) {
+      handleUndo();
+    } else if (result.actions.length > 0) {
+      // A rename leaves the node count alone, so tell the history effect about
+      // it explicitly; structural edits are picked up automatically.
+      if (result.actions.some((a) => a.kind === "rename-node")) setRenameRequest((n) => n + 1);
 
-    let reply = "Kimi added a new node to the canvas.";
-
-    if (lower.includes("remove") || lower.includes("delete")) {
-      if (selectedNode) {
-        setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
-        setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
-        setSelectedNode(null);
-        reply = `Removed the selected node from the canvas.`;
-      } else {
-        reply = "Select a node first, or ask me to remove the most recent node.";
-      }
-    } else if (lower.includes("rename") && selectedNode) {
-      const renameMatch = promptText.match(/rename(?:\s+it|\s+the)?\s+(.+?)\s+to\s+(.+)/i);
-      const newLabel = renameMatch?.[2]?.trim() || `Updated ${selectedNode.data.label}`;
-      setNodes((nds) => nds.map((n) => (n.id === selectedNode.id ? { ...n, data: { ...n.data, label: newLabel } } : n)));
-      setSelectedNode((prev: any) => (prev ? { ...prev, data: { ...prev.data, label: newLabel } } : prev));
-      reply = `Renamed the selected node to ${newLabel}.`;
-    } else {
-      const nextId = `${Date.now()}`;
-      const label = typeKey === "llm"
-        ? "Kimi Suggested Node"
-        : `${typeMap[typeKey]} Added`;
-      const newNode: Node = {
-        id: nextId,
-        type: "customNode",
-        position: { x: 180 + Math.random() * 220, y: 100 + Math.random() * 220 },
-        data: {
-          label,
-          type: typeMap[typeKey] || "LLM Node",
-          description: `Added by Kimi Assistant from prompt: ${promptText}`,
-          icon: (icons as any)[typeMap[typeKey] || "LLM Node"] || Cpu,
-        },
-      };
-
-      setNodes((prevNodes) => {
-        const nextNodes = [...prevNodes, newNode];
-        if (prevNodes.length > 0) {
-          const lastNode = prevNodes[prevNodes.length - 1];
-          setEdges((prevEdges) => [...prevEdges, { id: `edge_${Date.now()}`, source: lastNode.id, target: newNode.id }]);
-        }
-        return nextNodes;
-      });
-
-      setLogs((prev) => [...prev, `[KIMI] Added ${typeMap[typeKey] || "LLM Node"} from prompt.`]);
+      const next = applyActions(graph, result.actions);
+      const grew = next.nodes.length > graph.nodes.length;
+      setNodes(next.nodes);
+      setEdges(next.edges);
+      if (grew) setFitToken((t) => t + 1);
     }
 
-    setAssistantMessages((prev) => [...prev, { role: "assistant", content: reply }]);
-    setAssistantInput("");
-    setAssistantBusy(false);
+    setAssistantMessages((prev) => [...prev, { role: "assistant", content: result.reply }]);
+  };
+
+  const handleAssistantSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    submitPrompt(assistantInput);
+  };
+
+  /** Quick-command chip. The prompt rides on the element so this stays a named
+   *  handler rather than a fresh closure per item. */
+  const handleQuickCommand = (event: React.MouseEvent<HTMLButtonElement>) => {
+    const prompt = event.currentTarget.getAttribute("data-prompt");
+    if (prompt) submitPrompt(prompt);
   };
 
   // Render left library
@@ -536,31 +678,34 @@ function WorkflowBuilderInner() {
     <div className="flex-1 flex flex-col min-h-0 text-left select-none">
       <div className="p-4 border-b border-border/40 flex items-center justify-between">
         <span className="text-xs font-bold text-foreground uppercase tracking-wide">Node Library</span>
+        <span className="text-[10px] text-muted">{NODE_CATALOG.length} kinds</span>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {[
-          { name: "Input Trigger", type: "Input", icon: Zap, desc: "API Endpoint Webhook" },
-          { name: "LLM Agent", type: "LLM Node", icon: Cpu, desc: "Prompt Model Resolution" },
-          { name: "RAG Ingest", type: "RAG Node", icon: Database, desc: "Vector Database search" },
-          { name: "REST API call", type: "API Node", icon: GitBranch, desc: "Post/Get Web Services" },
-          { name: "Response Output", type: "Output", icon: Terminal, desc: "Finalize run values" },
-        ].map((node) => {
-          const Icon = node.icon;
+        {NODE_CATALOG.map((node) => {
           return (
             <div
-              key={node.name}
+              key={node.type}
+              role="button"
+              tabIndex={0}
               onClick={() => handleAddNode(node.type)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleAddNode(node.type);
+                }
+              }}
+              aria-label={`Add ${node.label}`}
               className="border border-border/80 hover:border-accent/40 rounded-lg p-3 bg-[#131a23]/30 hover:bg-[#131a23]/70 cursor-pointer flex gap-3 transition-all duration-200 select-none group"
             >
               <div className="h-8.5 w-8.5 rounded-lg bg-surface-light border border-border group-hover:border-accent/20 flex items-center justify-center text-muted group-hover:text-accent transition-colors flex-shrink-0">
-                <Icon className="h-4.5 w-4.5" />
+                <TypeIcon type={node.type} className="h-4.5 w-4.5" />
               </div>
               <div className="flex flex-col text-left">
                 <span className="text-xs font-bold text-foreground group-hover:text-accent transition-colors">
-                  {node.name}
+                  {node.label}
                 </span>
                 <span className="text-[9px] text-muted mt-1 leading-relaxed">
-                  {node.desc}
+                  {node.description}
                 </span>
               </div>
             </div>
@@ -583,7 +728,8 @@ function WorkflowBuilderInner() {
             Live workflow editing
           </div>
           <p className="mt-2 text-[10px] text-muted leading-relaxed">
-            Ask Kimi to add a RAG node, rename the trigger, or remove a selected node. Changes appear instantly.
+            I read what is actually on the canvas and edit it directly — add, remove, rename, connect or undo. If I
+            cannot tell which node you mean, I say so instead of guessing.
           </p>
         </div>
 
@@ -591,20 +737,44 @@ function WorkflowBuilderInner() {
           <textarea
             value={assistantInput}
             onChange={(e) => setAssistantInput(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter sends; Shift+Enter keeps the newline.
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                e.currentTarget.form?.requestSubmit();
+              }
+            }}
             placeholder="e.g. add a RAG node and connect it to the trigger"
             className="min-h-24 w-full rounded-lg border border-border bg-surface px-3 py-2 text-xs text-foreground placeholder:text-muted/60 focus:outline-none focus:border-accent/40"
           />
-          <Button type="submit" size="sm" className="w-full" isLoading={assistantBusy}>
+          <Button type="submit" size="sm" className="w-full">
             <Send className="mr-1.5 h-3.5 w-3.5" />
             Send to Kimi
           </Button>
         </form>
 
+        <div className="space-y-1.5">
+          <span className="text-[10px] font-semibold text-muted uppercase tracking-wider">Try</span>
+          <div className="flex flex-wrap gap-1.5">
+            {QUICK_COMMANDS.map((command) => (
+              <button
+                key={command}
+                type="button"
+                data-prompt={command}
+                onClick={handleQuickCommand}
+                className="rounded-md border border-border/70 bg-surface/70 px-2 py-1 text-[10px] text-muted transition-colors hover:border-accent/40 hover:text-accent"
+              >
+                {command}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="space-y-2">
           {assistantMessages.map((msg, index) => (
             <div key={`${msg.role}-${index}`} className={`rounded-lg border px-3 py-2 text-[10px] leading-relaxed ${msg.role === "assistant" ? "border-accent/20 bg-accent/10 text-foreground" : "border-border/50 bg-surface/80 text-muted"}`}>
               <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider opacity-70">{msg.role === "assistant" ? "Kimi" : "You"}</div>
-              <div>{msg.content}</div>
+              <div className="whitespace-pre-line">{msg.content}</div>
             </div>
           ))}
         </div>
@@ -623,7 +793,6 @@ function WorkflowBuilderInner() {
                   setNodes((nds) =>
                     nds.map((n) => (n.id === selectedNode.id ? { ...n, data: { ...n.data, label: val } } : n))
                   );
-                  setSelectedNode((prev: any) => ({ ...prev, data: { ...prev.data, label: val } }));
                 }}
               />
               <Input
@@ -634,7 +803,6 @@ function WorkflowBuilderInner() {
                   setNodes((nds) =>
                     nds.map((n) => (n.id === selectedNode.id ? { ...n, data: { ...n.data, description: val } } : n))
                   );
-                  setSelectedNode((prev: any) => ({ ...prev, data: { ...prev.data, description: val } }));
                 }}
               />
 
@@ -674,9 +842,9 @@ function WorkflowBuilderInner() {
                 </div>
               )}
 
-              <Button variant="danger" size="sm" className="w-full text-xs font-semibold" onClick={handleDeleteNode}>
+              <Button variant="danger" size="sm" className="w-full text-xs font-semibold" onClick={handleDeleteSelection}>
                 <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                Remove Node
+                Remove {selectedNodes.length > 1 ? `${selectedNodes.length} Nodes` : "Node"}
               </Button>
             </div>
           ) : (
@@ -729,8 +897,10 @@ function WorkflowBuilderInner() {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
-          onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
+          // Guarded by React Flow against keystrokes typed into inputs, so
+          // Backspace still edits text in the properties panel.
+          deleteKeyCode={["Backspace", "Delete"]}
           fitView
         >
           <MiniMap
@@ -741,21 +911,93 @@ function WorkflowBuilderInner() {
           />
           <Controls className="border border-border/80 bg-surface rounded-lg" />
           <Background color="#1E293B" gap={16} />
+          <AutoFit token={fitToken} />
         </ReactFlow>
+
+        {/* Canvas toolbar — add, delete and undo without leaving the graph. */}
+        <div className="pointer-events-none absolute left-4 top-4 z-10 flex items-center gap-2">
+          <div data-add-menu className="pointer-events-auto relative">
+            <button
+              type="button"
+              onClick={() => setAddMenuOpen((open) => !open)}
+              aria-expanded={addMenuOpen}
+              aria-haspopup="menu"
+              className="flex items-center gap-1.5 rounded-lg border border-accent/40 bg-surface/90 px-3 py-2 text-[11px] font-semibold text-accent shadow-lg backdrop-blur transition-colors hover:border-accent"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Node
+              <ChevronDown className={`h-3 w-3 transition-transform ${addMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {addMenuOpen && (
+              <div
+                role="menu"
+                className="absolute left-0 top-full z-20 mt-2 w-56 overflow-hidden rounded-lg border border-border/80 bg-surface shadow-2xl"
+              >
+                {NODE_CATALOG.map((entry) => {
+                  return (
+                    <button
+                      key={entry.type}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setAddMenuOpen(false);
+                        handleAddNode(entry.type);
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-accent/10 hover:text-accent"
+                    >
+                      <TypeIcon type={entry.type} className="h-3.5 w-3.5 shrink-0 text-accent" />
+                      <span className="flex-1">{entry.label}</span>
+                      <span className="text-[9px] text-muted">{entry.type}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDeleteSelection}
+            disabled={!hasSelection}
+            title={hasSelection ? `Delete ${selectedNodes.length + selectedEdges.length} selected` : "Select a node or a connection first"}
+            className="pointer-events-auto flex items-center gap-1.5 rounded-lg border border-border/80 bg-surface/90 px-3 py-2 text-[11px] font-semibold text-muted shadow-lg backdrop-blur transition-colors hover:border-red-500/50 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border/80 disabled:hover:text-muted"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
+            {hasSelection && (
+              <span className="rounded bg-surface-light px-1 text-[9px] text-foreground">
+                {selectedNodes.length + selectedEdges.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleUndo}
+            disabled={!canUndo}
+            title={canUndo ? "Undo the last structural change" : "Nothing to undo yet"}
+            className="pointer-events-auto flex items-center gap-1.5 rounded-lg border border-border/80 bg-surface/90 px-3 py-2 text-[11px] font-semibold text-muted shadow-lg backdrop-blur transition-colors hover:border-accent/50 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border/80 disabled:hover:text-muted"
+          >
+            <Undo2 className="h-3.5 w-3.5" />
+            Undo
+          </button>
+        </div>
 
         {nodes.length === 0 && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
             <div className="max-w-md rounded-2xl border border-dashed border-border/70 bg-surface/80 px-6 py-5 text-center shadow-lg backdrop-blur">
               <p className="text-sm font-semibold text-foreground">Canvas is ready for your workflow</p>
               <p className="mt-2 text-xs leading-relaxed text-muted">
-                Generate one from Create Agent or use Kimi Assistant to add the first nodes and shape the flow.
+                Use Add Node above, the library on the left, or Kimi Assistant to place the first nodes and shape the
+                flow.
               </p>
             </div>
           </div>
         )}
 
         {saveMessage && (
-          <div className="absolute left-4 top-4 rounded-lg border border-accent/20 bg-surface/90 px-3 py-2 text-[10px] text-foreground shadow-lg backdrop-blur">
+          <div className="absolute right-4 top-4 rounded-lg border border-accent/20 bg-surface/90 px-3 py-2 text-[10px] text-foreground shadow-lg backdrop-blur">
             {saveMessage}
           </div>
         )}

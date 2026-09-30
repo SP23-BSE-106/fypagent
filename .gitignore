@@ -47,3 +47,6 @@ nemotron-*.tar.gz
 /.hf-cache/
 
 /brag-output
+
+# compiled output of the workflow engine test suite
+/tests/kimi-engine/out/

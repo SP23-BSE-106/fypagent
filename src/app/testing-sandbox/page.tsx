@@ -277,7 +277,13 @@ function TestingSandboxInner() {
         <div className="flex-1 flex flex-col min-w-0 border-r border-border text-left relative">
           <div className="h-11 px-4 border-b border-border/40 flex items-center justify-between bg-surface/30">
             <div className="flex items-center gap-2">
-              <Link href="/workflow-builder">
+              <Link
+                href={
+                  agentId
+                    ? `/workflow-builder?agentId=${encodeURIComponent(agentId)}&agentName=${encodeURIComponent(agentName)}`
+                    : "/workflow-builder"
+                }
+              >
                 <button className="text-muted hover:text-accent p-1 rounded-md transition-colors flex items-center gap-1 text-xs">
                   <ArrowLeft className="w-3.5 h-3.5" /> Back to Builder Canvas
                 </button>

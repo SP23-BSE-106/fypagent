@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Boxes,
   Zap,
@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 
 export default function TemplateMarketplacePage() {
+  const router = useRouter();
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [category, setCategory] = React.useState<string>("All");
@@ -280,6 +281,32 @@ export default function TemplateMarketplacePage() {
     return matchesSearch && matchesCategory && matchesVerified && matchesRating;
   });
 
+  const deployTemplate = (template: (typeof templates)[number]) => {
+    const usesRag = template.name.includes("RAG") || template.desc.toLowerCase().includes("knowledge") || template.desc.toLowerCase().includes("documents");
+    const usesApi = template.desc.toLowerCase().includes("webhook") || template.desc.toLowerCase().includes("api") || template.category === "Automation";
+    const nodeTypes = [
+      { type: "trigger" as const, name: "Input Trigger", description: "Receives the workflow input." },
+      ...(usesRag ? [{ type: "rag" as const, name: "Knowledge Retrieval", description: "Searches the connected knowledge base for relevant context." }] : []),
+      ...(usesApi ? [{ type: "api" as const, name: "External API", description: "Calls the configured external service." }] : []),
+      { type: "llm" as const, name: `${template.model} Agent`, description: template.desc },
+      { type: "output" as const, name: "Response Output", description: "Returns the completed workflow result." },
+    ];
+    const nodes = nodeTypes.slice(0, Math.max(4, Math.min(template.nodes, nodeTypes.length))).map((node, index) => ({
+      id: `template-${index + 1}`,
+      ...node,
+    }));
+    const edges = nodes.slice(1).map((node, index) => ({
+      id: `template-edge-${index + 1}`,
+      source: nodes[index].id,
+      target: node.id,
+    }));
+
+    const workflow = encodeURIComponent(JSON.stringify({ nodes, edges }));
+    router.push(
+      `/workflow-builder?agentName=${encodeURIComponent(template.name)}&workflow=${workflow}`,
+    );
+  };
+
 
   return (
     <DashboardLayout>
@@ -406,12 +433,10 @@ export default function TemplateMarketplacePage() {
                 </CardContent>
                 <div className="p-6 pt-4 border-t border-border/40 mt-6 flex items-center justify-between text-xs">
                   <span className="text-[10px] text-muted font-medium">Model: {temp.model}</span>
-                  <Link href="/workflow-builder">
-                    <Button size="sm">
-                      <Download className="h-3.5 w-3.5 mr-1.5" />
-                      Deploy Template
-                    </Button>
-                  </Link>
+                  <Button size="sm" onClick={() => deployTemplate(temp)}>
+                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                    Deploy Template
+                  </Button>
                 </div>
               </Card>
             );

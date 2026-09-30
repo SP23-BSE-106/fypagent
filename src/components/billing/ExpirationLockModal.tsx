@@ -61,11 +61,10 @@ export function ExpirationLockModal() {
         <div className="p-3 bg-surface/60 rounded-xl border border-border/60 text-left space-y-2 text-xs">
           <div className="flex items-center gap-2 text-emerald-400 font-bold">
             <ShieldAlert className="w-4 h-4" />
-            <span>Upgrade Options Available:</span>
+            <span>Upgrade Available:</span>
           </div>
           <p className="text-muted text-[11px]">
-            • Pay via <strong>JazzCash / EasyPaisa</strong> (Rs. 1,500/mo)<br />
-            • Pay via <strong>Credit / Debit Card</strong> ($19 USD/mo)
+            • Pay via <strong>Credit / Debit Card</strong> through Stripe ($19 USD/mo)
           </p>
         </div>
 

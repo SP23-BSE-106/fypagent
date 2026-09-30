@@ -333,7 +333,7 @@ export default function LandingPage() {
         "Everything in Free Trial",
         "Unlimited Access Post 90 Days",
         "Priority Canvas Node Execution",
-        "JazzCash / EasyPaisa / Card Payments",
+        "Secure Card Payments via Stripe",
         "Dedicated API Endpoints",
       ],
     },

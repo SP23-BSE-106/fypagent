@@ -1,22 +1,111 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
-import { Key, Shield, Bell, Plus, Trash2, Check, Copy } from "lucide-react";
-
+import { Key, Bell, Server, Plus, Trash2, Copy } from "lucide-react";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
+type SystemInfo = {
+  environment: string;
+  region: string | null;
+  runtime: string;
+  appUrl: string;
+  serverTime: string;
+  database: { status: "connected" } | { status: "error"; message: string };
+  vectorIndex: { name: string; state: string; queryable: boolean } | null;
+  embedding: { model: string; dimension: number };
+};
 
+type PersonalKey = {
+  id: string;
+  name: string;
+  prefix: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+};
+
+function CardHeader({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-6">
+      <div className="h-9.5 w-9.5 rounded-lg bg-accent-muted flex items-center justify-center text-accent">
+        {icon}
+      </div>
+      <div>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">{title}</h3>
+        <p className="text-[10px] text-muted">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-1.5 border-b border-border/30 last:border-0">
+      <span className="text-muted shrink-0">{label}</span>
+      <span className="text-foreground font-medium text-right break-all">{children}</span>
+    </div>
+  );
+}
+
+/** The populated System card body. Exported so it can be rendered in isolation. */
+export function SystemDetails({ system }: { system: SystemInfo }) {
+  const isProduction = system.environment === "production";
+
+  return (
+    <div className="text-xs">
+      <MetaRow label="Environment">
+        <span
+          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+            isProduction ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"
+          }`}
+        >
+          {system.environment}
+        </span>
+      </MetaRow>
+      <MetaRow label="Region">{system.region || "Local"}</MetaRow>
+      <MetaRow label="Runtime">{system.runtime}</MetaRow>
+      <MetaRow label="Application URL">
+        <a href={system.appUrl} className="text-accent hover:underline">
+          {system.appUrl}
+        </a>
+      </MetaRow>
+      <MetaRow label="Database">
+        {system.database.status === "connected" ? (
+          <span className="text-emerald-400">Connected</span>
+        ) : (
+          <span className="text-red-400" title={system.database.message}>
+            Unavailable
+          </span>
+        )}
+      </MetaRow>
+      <MetaRow label="Vector Index">
+        {system.vectorIndex ? (
+          system.vectorIndex.queryable ? (
+            <span className="text-emerald-400" title={system.vectorIndex.name}>
+              Ready
+            </span>
+          ) : (
+            <span className="text-amber-400" title={system.vectorIndex.name}>
+              {system.vectorIndex.state}
+            </span>
+          )
+        ) : (
+          <span className="text-muted">Unknown</span>
+        )}
+      </MetaRow>
+      <MetaRow label="Embeddings">
+        <span title={system.embedding.model}>{system.embedding.dimension}-dim</span>
+      </MetaRow>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
-  const router = useRouter();
-
   // Personal API Keys
-  const [personalKeys, setPersonalKeys] = React.useState<any[]>([]);
+  const [personalKeys, setPersonalKeys] = React.useState<PersonalKey[]>([]);
   const [newKey, setNewKey] = React.useState<{ key: string; name: string } | null>(null);
   const [keyName, setKeyName] = React.useState("");
   const [isGeneratingKey, setIsGeneratingKey] = React.useState(false);
@@ -26,37 +115,31 @@ export default function SettingsPage() {
   const [emailNotifications, setEmailNotifications] = React.useState(false);
   const [inAppNotifications, setInAppNotifications] = React.useState(false);
   const [isUpdatingPrefs, setIsUpdatingPrefs] = React.useState(false);
+  const [prefsMessage, setPrefsMessage] = React.useState("");
 
-  // Existing provider keys UI (kept as-is)
-  const [geminiKey, setGeminiKey] = React.useState("");
-  const [deepseekKey, setDeepseekKey] = React.useState("");
-  const [openaiKey, setOpenaiKey] = React.useState("");
-  const [anthropicKey, setAnthropicKey] = React.useState("");
-  const [ollamaUrl, setOllamaUrl] = React.useState("http://localhost:11434");
+  // System status
+  const [system, setSystem] = React.useState<SystemInfo | null>(null);
+  const [systemLoading, setSystemLoading] = React.useState(true);
+  const [systemError, setSystemError] = React.useState("");
 
   React.useEffect(() => {
     const fetchSettings = async () => {
-      try {
-        const [keysRes, profileRes] = await Promise.all([
-          fetch("/api/settings/api-keys"),
-          fetch("/api/auth/profile"),
-        ]);
-        
-        if (keysRes.ok) {
-          const data = await keysRes.json();
-          if (data.keys) setPersonalKeys(data.keys);
-        }
+      const [keysRes, profileRes, systemRes] = await Promise.all([
+        fetch("/api/settings/api-keys").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch("/api/auth/profile").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch("/api/settings/system").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      ]);
 
-        if (profileRes.ok) {
-          const data = await profileRes.json();
-          if (data.user?.preferences) {
-            setEmailNotifications(Boolean(data.user.preferences.emailNotifications));
-            setInAppNotifications(Boolean(data.user.preferences.inAppNotifications));
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch settings", err);
+      if (keysRes?.keys) setPersonalKeys(keysRes.keys);
+
+      if (profileRes?.user?.preferences) {
+        setEmailNotifications(Boolean(profileRes.user.preferences.emailNotifications));
+        setInAppNotifications(Boolean(profileRes.user.preferences.inAppNotifications));
       }
+
+      if (systemRes?.system) setSystem(systemRes.system);
+      else setSystemError("System status is unavailable.");
+      setSystemLoading(false);
     };
     fetchSettings();
   }, []);
@@ -80,8 +163,8 @@ export default function SettingsPage() {
       setPersonalKeys((prev) => [data.keyRecord, ...prev]);
       setNewKey({ key: data.key, name: data.keyRecord.name });
       setKeyName("");
-    } catch (err: any) {
-      setKeyError(err.message || "Failed to generate key");
+    } catch (err) {
+      setKeyError(err instanceof Error ? err.message : "Failed to generate key");
     } finally {
       setIsGeneratingKey(false);
     }
@@ -103,19 +186,24 @@ export default function SettingsPage() {
     else setInAppNotifications(val);
 
     setIsUpdatingPrefs(true);
+    setPrefsMessage("");
     try {
       const prefs = {
         emailNotifications: type === "email" ? val : emailNotifications,
         inAppNotifications: type === "inApp" ? val : inAppNotifications,
       };
 
-      await fetch("/api/auth/profile", {
+      const res = await fetch("/api/auth/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "updateProfile", preferences: prefs }),
       });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || data.error) throw new Error(data.error || "Failed to save preferences");
+      setPrefsMessage("Saved.");
     } catch (err) {
-      console.error("Failed to update preferences", err);
+      setPrefsMessage(err instanceof Error ? err.message : "Failed to save preferences");
     } finally {
       setIsUpdatingPrefs(false);
     }
@@ -126,22 +214,18 @@ export default function SettingsPage() {
       <div className="space-y-8 select-none text-left">
         <div className="space-y-1">
           <h2 className="font-h1 font-bold text-foreground">Settings</h2>
-          <p className="text-xs text-muted">Configure model provider credentials and local settings.</p>
+          <p className="text-xs text-muted">System status, API access, and notification preferences.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           <div className="lg:col-span-2 space-y-6">
             {/* Personal API Keys */}
             <Card className="p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-9.5 w-9.5 rounded-lg bg-accent-muted flex items-center justify-center text-accent">
-                  <Key className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Personal API Keys</h3>
-                  <p className="text-[10px] text-muted">Generate keys to access the AgentFlow API programmatically.</p>
-                </div>
-              </div>
+              <CardHeader
+                icon={<Key className="h-5 w-5" />}
+                title="Personal API Keys"
+                subtitle="Generate keys to access the AgentFlow API programmatically."
+              />
 
               {keyError && <div className="text-sm text-red-500 mb-4">{keyError}</div>}
 
@@ -201,15 +285,11 @@ export default function SettingsPage() {
 
             {/* Notification Preferences */}
             <Card className="p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-9.5 w-9.5 rounded-lg bg-accent-muted flex items-center justify-center text-accent">
-                  <Bell className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Notification Preferences</h3>
-                  <p className="text-[10px] text-muted">Manage how you receive updates and alerts.</p>
-                </div>
-              </div>
+              <CardHeader
+                icon={<Bell className="h-5 w-5" />}
+                title="Notification Preferences"
+                subtitle="Manage how you receive updates and alerts."
+              />
 
               <div className="space-y-4">
                 <label className="flex items-center gap-3 cursor-pointer">
@@ -225,7 +305,7 @@ export default function SettingsPage() {
                     <div className="text-xs text-muted">Receive important updates via email.</div>
                   </div>
                 </label>
-                
+
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -239,81 +319,28 @@ export default function SettingsPage() {
                     <div className="text-xs text-muted">Show notifications within the application dashboard.</div>
                   </div>
                 </label>
+
+                <div className="h-4 text-[11px] text-accent">{prefsMessage}</div>
               </div>
             </Card>
           </div>
 
           <div className="space-y-6">
+            {/* System */}
             <Card className="p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-9.5 w-9.5 rounded-lg bg-accent-muted flex items-center justify-center text-accent">
-                  <Key className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Model API Providers</h3>
-                  <p className="text-[10px] text-muted">Set up credentials keys for canvas processing nodes.</p>
-                </div>
-              </div>
+              <CardHeader
+                icon={<Server className="h-5 w-5" />}
+                title="System"
+                subtitle="Runtime and service status for this deployment."
+              />
 
-              <div className="space-y-4">
-                <Input
-                  label="OpenAI Project Key"
-                  type="password"
-                  placeholder="sk-proj-..."
-                  value={openaiKey}
-                  onChange={(e) => setOpenaiKey(e.target.value)}
-                  showPasswordToggle
-                  autoComplete="new-password"
-                />
-                <Input
-                  label="Anthropic Access Token"
-                  type="password"
-                  placeholder="sk-ant-..."
-                  value={anthropicKey}
-                  onChange={(e) => setAnthropicKey(e.target.value)}
-                  showPasswordToggle
-                  autoComplete="new-password"
-                />
-                <Input
-                  label="Google Gemini API Key"
-                  type="password"
-                  placeholder="AIza..."
-                  value={geminiKey}
-                  onChange={(e) => setGeminiKey(e.target.value)}
-                  showPasswordToggle
-                  autoComplete="new-password"
-                />
-                <Input
-                  label="DeepSeek API Key"
-                  type="password"
-                  placeholder="sk-..."
-                  value={deepseekKey}
-                  onChange={(e) => setDeepseekKey(e.target.value)}
-                  showPasswordToggle
-                  autoComplete="new-password"
-                />
-                <Input
-                  label="Local Ollama Host Link"
-                  type="text"
-                  placeholder="http://localhost:11434"
-                  value={ollamaUrl}
-                  onChange={(e) => setOllamaUrl(e.target.value)}
-                />
-
-                <p className="text-[10px] text-muted">
-                  Note: this section is not part of UC-3.
-                </p>
-              </div>
-            </Card>
-
-            <Card className="p-5 bg-surface/30 space-y-3 flex items-start gap-3">
-              <Shield className="h-5 w-5 text-accent flex-shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <h5 className="text-xs font-bold text-foreground">Local Encryption</h5>
-                <p className="text-[10px] text-muted leading-normal">
-                  AgentFlow stores secret tokens locally and never transmits them to external staging servers.
-                </p>
-              </div>
+              {systemLoading ? (
+                <p className="text-xs text-muted">Loading system status...</p>
+              ) : systemError ? (
+                <p className="text-xs text-red-400">{systemError}</p>
+              ) : system ? (
+                <SystemDetails system={system} />
+              ) : null}
             </Card>
           </div>
         </div>
@@ -321,6 +348,3 @@ export default function SettingsPage() {
     </DashboardLayout>
   );
 }
-
-
-

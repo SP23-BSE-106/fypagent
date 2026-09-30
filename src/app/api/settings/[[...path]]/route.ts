@@ -3,9 +3,11 @@ import type { NextRequest } from 'next/server'
 import { dispatch, type DispatchContext } from '@/lib/api/routeDispatch'
 
 import * as apiKeys from '../api-keys/handler'
+import * as system from '../system/handler'
 
 const routes = {
   'api-keys': apiKeys,
+  system,
 }
 
 function handle(method: string) {

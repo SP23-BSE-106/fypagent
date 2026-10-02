@@ -126,7 +126,7 @@ export function BillingSection() {
               <h4 className="text-lg font-bold text-foreground mt-1">90-Day Free Trial</h4>
             </div>
             <div className="text-right">
-              <span className="text-2xl font-extrabold text-foreground">Rs. 0</span>
+              <span className="text-2xl font-extrabold text-foreground">$0</span>
               <span className="text-xs text-muted"> / 90 Days</span>
             </div>
           </div>
@@ -149,7 +149,9 @@ export function BillingSection() {
               <h4 className="text-lg font-bold text-foreground mt-1">AgentFlow Pro</h4>
             </div>
             <div className="text-right">
-              <span className="text-2xl font-extrabold text-foreground">Rs. 1,500</span>
+              {/* Stripe charges unit_amount 1900 in USD; a rupee figure here
+                  would quote a price nobody is ever charged. */}
+              <span className="text-2xl font-extrabold text-foreground">$19</span>
               <span className="text-xs text-muted"> / month</span>
             </div>
           </div>

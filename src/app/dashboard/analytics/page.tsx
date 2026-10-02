@@ -14,12 +14,14 @@ import {
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/Table";
 import {
   Cpu,
   GitMerge,
   Database,
   KeyRound,
   BarChart3,
+  Activity,
   AlertTriangle,
   Loader2,
 } from "lucide-react";
@@ -33,6 +35,28 @@ type AnalyticsAgent = {
 };
 
 type ChartRow = { name: string; nodes: number; edges: number };
+
+type RunRow = {
+  id: string;
+  kind: "exec" | "session";
+  agentName: string | null;
+  status: "success" | "failed";
+  input: string;
+  sourceCount: number;
+  durationMs: number;
+  provider: string | null;
+  model: string | null;
+  createdAt: string | null;
+};
+
+type RunSummary = {
+  total: number;
+  sessions: number;
+  succeeded: number;
+  failed: number;
+  avgDurationMs: number | null;
+  lastRunAt: string | null;
+};
 
 const CHART_TOOLTIP = {
   backgroundColor: "#131A23",
@@ -56,6 +80,8 @@ export default function AnalyticsPage() {
   const [agents, setAgents] = React.useState<AnalyticsAgent[]>([]);
   const [knowledge, setKnowledge] = React.useState<{ documents: number; chunks: number } | null>(null);
   const [keyCount, setKeyCount] = React.useState(0);
+  const [runs, setRuns] = React.useState<RunRow[]>([]);
+  const [runSummary, setRunSummary] = React.useState<RunSummary | null>(null);
   const [sizeMetric, setSizeMetric] = React.useState<"nodes" | "edges">("nodes");
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -65,10 +91,13 @@ export default function AnalyticsPage() {
 
     (async () => {
       try {
-        const [agentsRes, ragRes, keysRes] = await Promise.all([
+        const [agentsRes, ragRes, keysRes, runsRes] = await Promise.all([
           fetch("/api/agents", { credentials: "include" }),
           fetch("/api/rag/status", { credentials: "include" }),
           fetch("/api/settings/api-keys", { credentials: "include" }),
+          // Best-effort: the execution monitor is the newest surface here and
+          // it must not be able to blank out the rest of the page.
+          fetch("/api/agents/runs", { credentials: "include" }).catch(() => null),
         ]);
 
         if ([agentsRes, ragRes, keysRes].some((response) => response.status === 401)) {
@@ -78,10 +107,11 @@ export default function AnalyticsPage() {
           throw new Error("Workspace analytics could not be loaded.");
         }
 
-        const [agentsData, ragData, keysData] = await Promise.all([
+        const [agentsData, ragData, keysData, runsData] = await Promise.all([
           agentsRes.json(),
           ragRes.json(),
           keysRes.json(),
+          runsRes && runsRes.ok ? runsRes.json() : Promise.resolve(null),
         ]);
 
         if (cancelled) return;
@@ -92,6 +122,10 @@ export default function AnalyticsPage() {
           chunks: Number(ragData?.knowledge_base?.chunks || 0),
         });
         setKeyCount(Array.isArray(keysData?.keys) ? keysData.keys.length : 0);
+        if (runsData && Array.isArray(runsData.runs)) {
+          setRuns(runsData.runs);
+          setRunSummary(runsData.summary ?? null);
+        }
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : "Failed to load analytics.");
@@ -261,6 +295,97 @@ export default function AnalyticsPage() {
           </Card>
         </div>
 
+        {/* Execution monitor — measured by POST /api/agents/runs */}
+        <Card className="p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+            <div className="space-y-1">
+              <CardTitle className="text-xs font-bold text-foreground flex items-center gap-2">
+                <Activity className="h-3.5 w-3.5 text-accent" />
+                Execution monitor
+              </CardTitle>
+              <CardDescription className="text-[10px]">
+                Written by the Testing Sandbox each time you run a message. Nothing here is estimated.
+              </CardDescription>
+            </div>
+            <Badge variant={runSummary && runSummary.failed > 0 ? "warning" : "success"}>
+              {runSummary
+                ? `${runSummary.succeeded} succeeded / ${runSummary.failed} failed`
+                : "No runs recorded"}
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Metric label="Runs recorded" value={String(runSummary?.total ?? 0)} />
+            <Metric label="Succeeded" value={String(runSummary?.succeeded ?? 0)} />
+            <Metric label="Failed" value={String(runSummary?.failed ?? 0)} />
+            <Metric
+              label="Average latency"
+              value={runSummary?.avgDurationMs != null ? `${runSummary.avgDurationMs} ms` : "—"}
+            />
+          </div>
+
+          {runs.length === 0 ? (
+            <EmptyState
+              title="No executions recorded yet"
+              hint="Open the Testing Sandbox from the sidebar and run a message — every execution lands here with its real latency and model."
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>When</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Input</TableHead>
+                    <TableHead>Result</TableHead>
+                    <TableHead className="text-right">Latency</TableHead>
+                    <TableHead>Model</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {runs.map((run) => (
+                    <TableRow key={run.id}>
+                      <TableCell className="text-[11px] text-muted whitespace-nowrap align-top">
+                        {run.createdAt ? new Date(run.createdAt).toLocaleString() : "—"}
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <Badge variant={run.kind === "session" ? "outline" : "accent"}>
+                          {run.kind === "session" ? "session" : "run"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell
+                        className="text-[11px] text-foreground/80 max-w-[260px] truncate align-top"
+                        title={run.input}
+                      >
+                        {run.input || "—"}
+                      </TableCell>
+                      <TableCell className="text-[11px] align-top">
+                        {run.status === "failed" ? (
+                          <span className="font-semibold text-red-400">failed</span>
+                        ) : (
+                          <span className="font-semibold text-emerald-400">success</span>
+                        )}
+                        {run.sourceCount > 0 && (
+                          <span className="text-muted"> · {run.sourceCount} chunks</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-[11px] text-right tabular-nums align-top">
+                        {run.durationMs ? `${run.durationMs} ms` : "—"}
+                      </TableCell>
+                      <TableCell
+                        className="text-[11px] text-muted max-w-[170px] truncate align-top"
+                        title={[run.provider, run.model].filter(Boolean).join(" — ")}
+                      >
+                        {run.model || run.provider || "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </Card>
+
         {/* What is not tracked — stated rather than faked */}
         <Card className="p-6">
           <div className="flex items-start gap-3">
@@ -269,17 +394,19 @@ export default function AnalyticsPage() {
             </div>
             <div className="space-y-1">
               <CardTitle className="text-xs font-bold text-foreground">
-                Execution history is not recorded yet
+                What is counted, and what still is not
               </CardTitle>
               <CardDescription className="text-[10px] leading-relaxed">
-                Run counts, latency, token spend and success rate are deliberately left empty — the platform does not
-                persist workflow executions, so showing figures for them would be inventing data. Knowledge-base size
-                and workflow structure above are counted directly from your records.
+                Run counts and latency come from the execution monitor above — real records written when the Testing
+                Sandbox runs a message. Token spend, per-node timings and retry counts are still captured nowhere in
+                the platform, so they are left out rather than estimated. Knowledge-base size, workflow structure and
+                issued keys are counted directly from your records.
                 {agents.length > 0 && (
                   <span className="mt-1 block text-foreground/70">
                     Right now: {agents.length} {agents.length === 1 ? "agent" : "agents"}, {activeAgents} active,{" "}
                     {totalNodes} workflow steps, {knowledge?.documents ?? 0}{" "}
-                    {(knowledge?.documents ?? 0) === 1 ? "document" : "documents"} indexed.
+                    {(knowledge?.documents ?? 0) === 1 ? "document" : "documents"} indexed,{" "}
+                    {runSummary?.total ?? 0} {(runSummary?.total ?? 0) === 1 ? "run" : "runs"} recorded.
                   </span>
                 )}
               </CardDescription>
@@ -288,6 +415,15 @@ export default function AnalyticsPage() {
         </Card>
       </div>
     </DashboardLayout>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-surface/40 px-4 py-3">
+      <div className="text-[10px] font-bold uppercase tracking-wide text-muted">{label}</div>
+      <div className="mt-1 text-lg font-extrabold tabular-nums text-foreground">{value}</div>
+    </div>
   );
 }
 

@@ -16,6 +16,14 @@ interface BuilderLayoutProps {
   onRun?: () => void;
   onSave?: () => void;
   onDeploy?: () => void;
+  /**
+   * Label for the save button. It reads "Save Draft" in the builder; the
+   * testing sandbox has no draft to save, so it passes its own wording rather
+   * than shipping a button whose label promises something it does not do.
+   */
+  saveLabel?: string;
+  /** Where "Test in Sandbox" goes — the builder carries the agent so the sandbox opens with it. */
+  sandboxHref?: string;
   isRunning?: boolean;
   isSaving?: boolean;
   autoSaveStatus?: "idle" | "saving" | "saved" | "error";
@@ -34,6 +42,8 @@ export const BuilderLayout: React.FC<BuilderLayoutProps> = ({
   onRun,
   onSave,
   onDeploy,
+  saveLabel = "Save Draft",
+  sandboxHref = "/testing-sandbox",
   isRunning = false,
   isSaving = false,
   autoSaveStatus = "idle",
@@ -74,7 +84,7 @@ export const BuilderLayout: React.FC<BuilderLayoutProps> = ({
               Run Agent
             </Button>
           )}
-          <Link href="/testing-sandbox">
+          <Link href={sandboxHref}>
             <Button variant="outline" size="sm" className="border-border text-foreground hover:bg-surface-light">
               <Terminal className="h-3.5 w-3.5 mr-1.5 text-accent" />
               Test in Sandbox
@@ -89,7 +99,7 @@ export const BuilderLayout: React.FC<BuilderLayoutProps> = ({
               disabled={isSaving}
             >
               <Save className="h-3.5 w-3.5 mr-1.5" />
-              Save Draft
+              {saveLabel}
             </Button>
           )}
           
@@ -145,7 +155,7 @@ export const BuilderLayout: React.FC<BuilderLayoutProps> = ({
           role="alert"
           className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-red-500/25 bg-red-500/10 px-4 py-2 text-[11px] text-red-300"
         >
-          <span className="font-semibold shrink-0">Auto-save failed — your last change was not written.</span>
+          <span className="font-semibold shrink-0">Save failed — your last change was not written.</span>
           <span className="truncate" title={autoSaveError}>
             {autoSaveError}
           </span>

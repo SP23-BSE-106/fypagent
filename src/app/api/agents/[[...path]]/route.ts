@@ -4,6 +4,7 @@ import { methodNotAllowed, notFound, type DispatchContext } from '@/lib/api/rout
 
 import * as generate from '../generate/handler'
 import * as root from '../handler'
+import * as runs from '../runs/handler'
 import * as byId from '../[id]/handler'
 
 // Workflow generation calls a model end to end. Without an explicit budget
@@ -15,13 +16,16 @@ export const maxDuration = 60
 type Handler = (request: NextRequest, ctx?: unknown) => Promise<Response> | Response
 
 /**
- * Three shapes live under one prefix, resolved here in Next's own precedence
+ * Four shapes live under one prefix, resolved here in Next's own precedence
  * order (static segments beat dynamic ones):
  *
  *   /api/agents            -> root        (GET, POST)
  *   /api/agents/generate   -> generate    (POST)
+ *   /api/agents/runs       -> runs        (GET, POST)
  *   /api/agents/{id}       -> byId        (GET, DELETE, PATCH)
  *
+ * `runs` is matched before `{id}` so it can never be mistaken for one — agent
+ * ids are 24 hex characters, so nothing legitimate collides either way.
  * `byId` is the only handler in the app that reads `params`, so its context is
  * rebuilt as `{ id }` rather than the catch-all's `{ path }`.
  */
@@ -39,6 +43,8 @@ async function run(
     mod = root
   } else if (path.length === 1 && path[0] === 'generate') {
     mod = generate
+  } else if (path.length === 1 && path[0] === 'runs') {
+    mod = runs
   } else if (path.length === 1) {
     mod = byId
     handlerCtx = { params: Promise.resolve({ id: path[0] }) }

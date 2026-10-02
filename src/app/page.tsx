@@ -327,7 +327,7 @@ export default function LandingPage() {
   const pricing = [
     {
       name: "90-Day Free Trial",
-      price: "Rs. 0",
+      price: "$0",
       highlight: false,
       features: [
         "90 Days Full Access",
@@ -339,7 +339,9 @@ export default function LandingPage() {
     },
     {
       name: "Pro Plan",
-      price: "Rs. 1,500",
+      // Stripe charges unit_amount 1900 USD — the page has to say the same
+      // number the customer is actually charged.
+      price: "$19",
       highlight: true,
       features: [
         "Everything in Free Trial",
@@ -795,7 +797,10 @@ export default function LandingPage() {
                       ))}
                     </ul>
 
-                    <Link href="/signup" className="mt-8 block relative z-10">
+                    <Link
+                      href={tier.price === "Custom" ? "/contact" : "/signup"}
+                      className="mt-8 block relative z-10"
+                    >
                       <button
                         className={cn(
                           "w-full rounded-xl py-3 text-sm font-bold transition-all duration-200 relative overflow-hidden group",

@@ -47,6 +47,7 @@ import {
   runKimiCommand,
   toCanvasType,
   toPersistedType,
+  typeOf,
 } from "@/lib/workflow/kimiEngine";
 
 /**
@@ -506,28 +507,169 @@ function WorkflowBuilderInner() {
     );
   }, [setNodes]);
 
-  // Run execution simulation
-  const handleRun = () => {
-    setIsRunning(true);
-    setLogs((prev) => [...prev, "[EXECUTION] Initializing manual run request..."]);
-
-    const steps = [
-      { msg: "[EXECUTION] Step 1: Webhook Ingestion triggered - Payload collected.", delay: 800 },
-      { msg: "[EXECUTION] Step 2: Model Router (GPT-4o) processed intent (Class: Escalation).", delay: 1600 },
-      { msg: "[EXECUTION] Step 3: Querying RAG Database index: Ingested 2 relevant chunks.", delay: 2400 },
-      { msg: "[EXECUTION] Step 4: Syncing payload with CRM API Salesforce Endpoint.", delay: 3200 },
-      { msg: "[EXECUTION] Step 5: Compiled Output finalized. Output: { success: true }.", delay: 4000 },
-      { msg: "[SYSTEM] Flow completed successfully in 4.02 seconds.", delay: 4100 },
-    ];
-
-    steps.forEach((step) => {
-      setTimeout(() => {
-        setLogs((prev) => [...prev, step.msg]);
-        if (step.msg.includes("completed")) {
-          setIsRunning(false);
-        }
-      }, step.delay);
+  /**
+   * Writes a builder activity to the run history (Monitoring & Control).
+   * Best-effort: a monitoring failure must never surface as a failed compile.
+   */
+  const recordBuilderRun = (
+    status: "success" | "failed",
+    input: string,
+    output: string,
+    durationMs: number,
+  ) => {
+    void fetch("/api/agents/runs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        kind: "exec",
+        agentId,
+        agentName: agentNameFromQuery || null,
+        status,
+        input,
+        output,
+        durationMs,
+      }),
+    }).catch(() => {
+      /* monitoring is best-effort */
     });
+  };
+
+  /**
+   * "Run" on the authoring canvas is a real compile pass: every node is checked
+   * against the catalogue, every connection against the graph, and the result is
+   * recorded. It deliberately does not claim to have called a model — the log
+   * says so plainly and points at the Testing Sandbox, which does make a live
+   * round-trip.
+   */
+  const handleRun = () => {
+    if (isRunning) return;
+    setIsRunning(true);
+
+    const startedAt = Date.now();
+    setLogs((prev) => [
+      ...prev,
+      `[COMPILE] Checking ${nodes.length} node(s) and ${edges.length} connection(s)...`,
+    ]);
+
+    const issues: string[] = [];
+    const knownTypes = new Set(NODE_CATALOG.map((entry) => entry.type));
+    const nodeIds = new Set(nodes.map((node) => node.id));
+    const linked = new Set<string>();
+
+    if (nodes.length === 0) issues.push("the canvas is empty");
+
+    for (const edge of edges) {
+      linked.add(edge.source);
+      linked.add(edge.target);
+      if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) {
+        issues.push(`a connection points at a node that no longer exists`);
+      }
+    }
+
+    const typeCounts = new Map<string, number>();
+    for (const node of nodes) {
+      const type = typeOf(node);
+      typeCounts.set(type, (typeCounts.get(type) ?? 0) + 1);
+
+      if (!knownTypes.has(type)) {
+        issues.push(`'${labelOf(node) || node.id}' has an unknown node type '${type}'`);
+      }
+      if (nodes.length > 1 && !linked.has(node.id)) {
+        issues.push(`'${labelOf(node) || node.id}' is not connected to anything`);
+      }
+    }
+
+    if (nodes.length > 0) {
+      if (!typeCounts.has("Input")) issues.push("no Input Trigger — nothing starts the flow");
+      if (!typeCounts.has("Output")) issues.push("no Response Output — the flow never produces a result");
+    }
+
+    // Kahn's algorithm: any node that never reaches indegree 0 sits on a cycle,
+    // which would loop forever at execution time.
+    const indegree = new Map<string, number>(nodes.map((node) => [node.id, 0]));
+    for (const edge of edges) {
+      if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) continue;
+      indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1);
+    }
+    const queue = [...indegree.entries()].filter(([, degree]) => degree === 0).map(([id]) => id);
+    let settled = 0;
+    while (queue.length > 0) {
+      const id = queue.shift() as string;
+      settled += 1;
+      for (const edge of edges) {
+        if (edge.source !== id || !nodeIds.has(edge.target)) continue;
+        const next = (indegree.get(edge.target) ?? 0) - 1;
+        indegree.set(edge.target, next);
+        if (next === 0) queue.push(edge.target);
+      }
+    }
+    if (nodes.length > 0 && settled < nodeIds.size) issues.push("the flow contains a cycle");
+
+    const durationMs = Date.now() - startedAt;
+    const summary = issues.length === 0
+      ? `Compiled ${nodes.length} node(s) / ${edges.length} connection(s) with no issues.`
+      : `${issues.length} issue(s): ${issues.join("; ")}`;
+
+    setLogs((prev) => [
+      ...prev,
+      ...(issues.length === 0
+        ? [
+            `[COMPILE] ✓ Catalogue, connections, entry point, output and acyclicity all check out.`,
+            `[COMPILE] ✓ ${summary}`,
+            "[SYSTEM] Nothing was executed — open Testing Sandbox for a live model call.",
+          ]
+        : [
+            ...issues.map((issue) => `[COMPILE] ✗ ${issue}`),
+            `[SYSTEM] Compile finished with ${issues.length} issue(s). Nothing was executed.`,
+          ]),
+    ]);
+
+    recordBuilderRun(
+      issues.length === 0 ? "success" : "failed",
+      `Compile check (${nodes.length} nodes, ${edges.length} connections)`,
+      summary,
+      durationMs,
+    );
+    setIsRunning(false);
+  };
+
+  /**
+   * Deploy sets the agent live. It is a real write: the status the dashboard
+   * and the agents list read is what changes, and the log names the endpoint
+   * the agent becomes reachable on.
+   */
+  const handleDeploy = async () => {
+    if (!agentId) {
+      setLogs((prev) => [
+        ...prev,
+        "[DEPLOY] Nothing to deploy yet — save the draft first so it has an agent id.",
+      ]);
+      return;
+    }
+
+    setSaveBusy(true);
+    try {
+      const res = await fetch(`/api/agents/${agentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status: "active" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+      setLogs((prev) => [
+        ...prev,
+        "[DEPLOY] Status set to active.",
+        "[DEPLOY] Reachable at POST /api/execute with a personal API key.",
+      ]);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "deploy failed";
+      setLogs((prev) => [...prev, `[DEPLOY] ✗ ${reason}`]);
+    } finally {
+      setSaveBusy(false);
+    }
   };
 
   /**
@@ -929,7 +1071,12 @@ function WorkflowBuilderInner() {
       isRunning={isRunning}
       onSave={handleSaveDraft}
       isSaving={saveBusy}
-      onDeploy={() => setLogs((prev) => [...prev, "[SYSTEM] Workflow compiled and deployed to public production endpoint."])}
+      onDeploy={handleDeploy}
+      sandboxHref={
+        agentId
+          ? `/testing-sandbox?agentId=${encodeURIComponent(agentId)}&name=${encodeURIComponent(agentNameFromQuery || "Visual Workflow Canvas")}`
+          : "/testing-sandbox"
+      }
       autoSaveStatus={autoSaveStatus}
       autoSaveError={autoSaveError}
       lastSavedTime={lastSavedTime}

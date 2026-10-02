@@ -13,12 +13,19 @@ interface DocumentItem {
   name: string;
   preview: string;
   chunks: number;
+  /** Chunks carrying a vector written by the model currently in use. */
+  embedded: number;
   createdAt: string;
 }
 
 export default function DocumentCenterPage() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [isUploading, setIsUploading] = React.useState(false);
+  // Two phases, because they are two different waits: bytes going up the wire
+  // (measurable) and the server chunking + embedding them (not measurable from
+  // the browser). Collapsing them into one bar made 100% appear before the
+  // document was anywhere near indexed.
+  const [uploadPhase, setUploadPhase] = React.useState<"idle" | "uploading" | "embedding">("idle");
   const [uploadProgress, setUploadProgress] = React.useState(0);
   const [documents, setDocuments] = React.useState<DocumentItem[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -27,6 +34,13 @@ export default function DocumentCenterPage() {
   const [testQuery, setTestQuery] = React.useState("");
   const [isQuerying, setIsQuerying] = React.useState(false);
   const [queryResults, setQueryResults] = React.useState<any[]>([]);
+  // A failed search used to leave the results area empty and silent, so the
+  // button looked broken. This carries the reason instead (or the "nothing
+  // matched" note, which was silent too).
+  const [queryNotice, setQueryNotice] = React.useState<{
+    kind: "error" | "info";
+    text: string;
+  } | null>(null);
 
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const [isReindexing, setIsReindexing] = React.useState(false);
@@ -96,41 +110,66 @@ export default function DocumentCenterPage() {
     fetchDocuments();
   }, [fetchDocuments]);
 
+  /**
+   * Uploads with XMLHttpRequest rather than fetch, because it is the only way
+   * to observe real byte-level progress. Bytes are all the browser can see —
+   * chunking and embedding happen on the server — so the caller switches the
+   * phase label when the transfer completes instead of pretending to know how
+   * far embedding has got.
+   */
+  const uploadWithProgress = (
+    file: File,
+  ): Promise<{ ok: boolean; status: number; statusText: string; body: string }> =>
+    new Promise((resolve, reject) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("name", file.name);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/rag/upload");
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && event.total > 0) {
+          setUploadProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+        }
+      };
+      xhr.upload.onload = () => setUploadPhase("embedding");
+      xhr.onload = () =>
+        resolve({
+          ok: xhr.status >= 200 && xhr.status < 300,
+          status: xhr.status,
+          statusText: xhr.statusText,
+          body: xhr.responseText,
+        });
+      xhr.onerror = () => reject(new Error("Network error while uploading."));
+      xhr.ontimeout = () => reject(new Error("Upload timed out."));
+      xhr.send(formData);
+    });
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
-    setUploadProgress(20);
+    setUploadPhase("uploading");
+    setUploadProgress(0);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("name", file.name);
+      const response = await uploadWithProgress(file);
 
-      setUploadProgress(50);
-
-      const res = await fetch("/api/rag/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      setUploadProgress(85);
       // Read as text first: a Vercel gateway/timeout page is HTML, and calling
       // `res.json()` on it throws a confusing "Unexpected token" error.
-      const raw = await res.text();
       let data: { error?: string } = {};
       try {
-        data = raw ? JSON.parse(raw) : {};
+        data = response.body ? JSON.parse(response.body) : {};
       } catch {
         /* non-JSON error page — handled via the status below */
       }
 
-      if (!res.ok) {
-        if (res.status === 401) throw new Error("Session expired — log in again, then retry.");
+      if (!response.ok) {
+        if (response.status === 401) throw new Error("Session expired — log in again, then retry.");
         throw new Error(
           data.error ||
-            `HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ""} (non-JSON error page)`,
+            `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""} (non-JSON error page)`,
         );
       }
 
@@ -140,6 +179,8 @@ export default function DocumentCenterPage() {
       alert("Error uploading document: " + err.message);
     } finally {
       setIsUploading(false);
+      setUploadPhase("idle");
+      setUploadProgress(0);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -150,6 +191,7 @@ export default function DocumentCenterPage() {
 
     setIsQuerying(true);
     setQueryResults([]);
+    setQueryNotice(null);
 
     try {
       const res = await fetch("/api/rag/query", {
@@ -157,12 +199,40 @@ export default function DocumentCenterPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: testQuery, topK: 3 }),
       });
-      const data = await res.json();
-      if (res.ok) {
-        setQueryResults(data.results || []);
+
+      // Text first: an HTML gateway page makes res.json() throw a cryptic
+      // parse error that reads like a bug in the app rather than a 502.
+      const raw = await res.text();
+      let data: { results?: unknown[]; error?: string } = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        /* non-JSON body — surfaced via the status below */
+      }
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("Session expired — log in again, then search again.");
+        }
+        throw new Error(
+          data.error ||
+            `Search failed — HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ""}`,
+        );
+      }
+
+      const results = Array.isArray(data.results) ? data.results : [];
+      setQueryResults(results);
+      if (results.length === 0) {
+        setQueryNotice({
+          kind: "info",
+          text: "No chunks matched that question. Upload a document first, or try different wording.",
+        });
       }
     } catch (err) {
-      console.error("Test query error:", err);
+      setQueryNotice({
+        kind: "error",
+        text: err instanceof Error ? err.message : "The search could not be completed.",
+      });
     } finally {
       setIsQuerying(false);
     }
@@ -244,14 +314,24 @@ export default function DocumentCenterPage() {
               {isUploading && (
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center justify-between text-[10px]">
-                    <span className="font-semibold text-accent">Generating vector embeddings...</span>
-                    <span className="font-bold">{uploadProgress}%</span>
+                    <span className="font-semibold text-accent">
+                      {uploadPhase === "embedding"
+                        ? "Upload complete — chunking & embedding on the server…"
+                        : "Uploading file…"}
+                    </span>
+                    <span className="font-bold">
+                      {uploadPhase === "embedding" ? "working" : `${uploadProgress}%`}
+                    </span>
                   </div>
                   <div className="h-1.5 w-full bg-border rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-accent transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    />
+                    {uploadPhase === "embedding" ? (
+                      <div className="h-full w-full bg-accent/60 animate-pulse" />
+                    ) : (
+                      <div
+                        className="h-full bg-accent transition-all duration-200"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    )}
                   </div>
                 </div>
               )}
@@ -297,12 +377,29 @@ export default function DocumentCenterPage() {
                   placeholder="Ask a question about your files..."
                   className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-xs text-foreground placeholder:text-muted/60 focus:outline-none focus:border-accent/40"
                   value={testQuery}
-                  onChange={(e) => setTestQuery(e.target.value)}
+                  onChange={(e) => {
+                    setTestQuery(e.target.value);
+                    if (queryNotice) setQueryNotice(null);
+                  }}
                 />
                 <Button type="submit" isLoading={isQuerying} className="w-full text-xs">
                   Search Vector Store
                 </Button>
               </form>
+
+              {queryNotice && (
+                <div
+                  role={queryNotice.kind === "error" ? "alert" : "status"}
+                  className={`mt-4 flex items-start gap-2 p-2.5 rounded text-[11px] leading-relaxed ${
+                    queryNotice.kind === "error"
+                      ? "bg-red-500/10 text-red-300"
+                      : "border border-border/60 bg-surface/50 text-muted"
+                  }`}
+                >
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>{queryNotice.text}</span>
+                </div>
+              )}
 
               {queryResults.length > 0 && (
                 <div className="mt-4 space-y-2">
@@ -361,10 +458,31 @@ export default function DocumentCenterPage() {
                       </TableCell>
                       <TableCell className="text-xs text-muted font-medium">{doc.chunks}</TableCell>
                       <TableCell>
-                        <Badge variant="success">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Active
-                        </Badge>
+                        {(() => {
+                          const fresh = doc.embedded ?? 0;
+                          if (doc.chunks === 0) {
+                            return (
+                              <Badge variant="warning">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                No chunks
+                              </Badge>
+                            );
+                          }
+                          if (fresh >= doc.chunks) {
+                            return (
+                              <Badge variant="success">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Indexed
+                              </Badge>
+                            );
+                          }
+                          return (
+                            <Badge variant="warning">
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              {fresh}/{doc.chunks} embedded
+                            </Badge>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-xs text-muted">
                         {new Date(doc.createdAt).toLocaleDateString()}

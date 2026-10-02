@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Bell, Search, HelpCircle } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/Sidebar";
@@ -30,10 +30,36 @@ const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+/** Pages the header search can reach. Client-side only, so it is instant and works offline. */
+const SEARCHABLE_PAGES = [
+  { title: "Dashboard", href: "/dashboard", keywords: "home overview workspace" },
+  { title: "My Agents", href: "/dashboard/agents", keywords: "agents list saved" },
+  { title: "Create Agent", href: "/dashboard/agents/create", keywords: "new build generate" },
+  { title: "Workflow Builder", href: "/workflow-builder", keywords: "canvas nodes graph editor" },
+  { title: "Testing Sandbox", href: "/testing-sandbox", keywords: "test run trace execute" },
+  { title: "Knowledge Base", href: "/dashboard/rag", keywords: "rag documents vector upload embeddings" },
+  { title: "Deployments", href: "/dashboard/deployment", keywords: "api keys endpoint deploy" },
+  { title: "Execution Monitor", href: "/dashboard/analytics", keywords: "analytics monitoring runs latency metrics" },
+  { title: "Templates", href: "/dashboard/templates", keywords: "marketplace presets" },
+  { title: "Billing", href: "/dashboard/payment", keywords: "payment stripe subscription price plan" },
+  { title: "Profile", href: "/dashboard/profile", keywords: "account avatar email password" },
+  { title: "Settings", href: "/dashboard/settings", keywords: "preferences configuration" },
+  { title: "Documentation", href: "/docs", keywords: "docs api reference help guide" },
+];
+
 export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname();
+  const router = useRouter();
   const [user, setUser] = React.useState<UserProfile | null>(null)
   const [userLoading, setUserLoading] = React.useState(true)
+  // The header search box used to be an input with no handler at all — typing
+  // into it did nothing anywhere in the app. It now navigates to a match.
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  // The bell used to pulse a decorative dot forever. It now reflects real
+  // failures out of the execution monitor, and only once that has loaded.
+  const [failedRuns, setFailedRuns] = React.useState(0);
+  const [runsLoaded, setRunsLoaded] = React.useState(false);
 
 
   React.useEffect(() => {
@@ -57,6 +83,26 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     // Not logged in -> force login
     window.location.href = '/login';
   }, [user, userLoading]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch('/api/agents/runs', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data && data.summary) {
+          setFailedRuns(Number(data.summary.failed) || 0);
+        }
+      })
+      .catch(() => {
+        /* the header must still render if monitoring is unreachable */
+      })
+      .finally(() => {
+        if (!cancelled) setRunsLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
 
 
@@ -97,6 +143,19 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     );
   }
 
+  const goToPage = (href: string) => {
+    setSearchOpen(false);
+    setSearchQuery("");
+    router.push(href);
+  };
+
+  const trimmedSearch = searchQuery.trim().toLowerCase();
+  const searchMatches = trimmedSearch
+    ? SEARCHABLE_PAGES.filter((page) =>
+        `${page.title} ${page.keywords}`.toLowerCase().includes(trimmedSearch),
+      ).slice(0, 6)
+    : [];
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
       <Sidebar />
@@ -113,24 +172,76 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted" />
                 <input
                   type="text"
-                  placeholder="Search workflows, agents..."
+                  placeholder="Search pages… (Enter to open)"
+                  aria-label="Search pages"
                   className="w-full bg-surface-light/30 border border-border/40 rounded-lg pl-9 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted/60 focus:outline-none focus:border-accent/40 focus:ring-1 focus:ring-accent/20 transition-all duration-200 hover:border-accent/25"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setSearchOpen(true);
+                  }}
+                  onFocus={() => setSearchOpen(true)}
+                  onBlur={() => setSearchOpen(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && searchMatches.length > 0) {
+                      e.preventDefault();
+                      goToPage(searchMatches[0].href);
+                    } else if (e.key === "Escape") {
+                      setSearchOpen(false);
+                    }
+                  }}
                 />
+                {searchOpen && searchMatches.length > 0 && (
+                  <ul className="absolute left-0 top-full mt-1 w-full z-50 rounded-lg border border-border/60 bg-surface shadow-xl overflow-hidden">
+                    {searchMatches.map((page) => (
+                      <li key={page.href}>
+                        <button
+                          type="button"
+                          // mousedown fires before blur, so navigation wins the race.
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            goToPage(page.href);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs text-foreground hover:bg-surface-light transition-colors"
+                        >
+                          {page.title}
+                          <span className="ml-2 text-[10px] text-muted">{page.href}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-3 relative">
               <a
-                href="https://github.com"
+                href="https://github.com/SP23-BSE-106/fypagent"
                 target="_blank"
                 rel="noreferrer"
+                aria-label="Open the project repository"
                 className="text-muted hover:text-foreground transition-colors p-1.5 hover:bg-surface-light rounded-md hover:shadow-[0_0_22px_-10px_rgba(91,231,196,0.35)]"
               >
                 <GithubIcon className="h-4 w-4" />
               </a>
-              <button className="relative text-muted hover:text-foreground transition-colors p-1.5 hover:bg-surface-light rounded-md hover:shadow-[0_0_22px_-10px_rgba(91,231,196,0.35)]">
+              <Link
+                href="/dashboard/analytics"
+                aria-label={
+                  failedRuns > 0
+                    ? `Monitoring: ${failedRuns} failed run${failedRuns === 1 ? "" : "s"}`
+                    : "Open the execution monitor"
+                }
+                title={
+                  failedRuns > 0
+                    ? `${failedRuns} failed run${failedRuns === 1 ? "" : "s"} — open monitoring`
+                    : "Open monitoring"
+                }
+                className="relative text-muted hover:text-foreground transition-colors p-1.5 hover:bg-surface-light rounded-md hover:shadow-[0_0_22px_-10px_rgba(91,231,196,0.35)]"
+              >
                 <Bell className="h-4 w-4" />
-                <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-              </button>
+                {runsLoaded && failedRuns > 0 && (
+                  <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" />
+                )}
+              </Link>
               <Link href="/docs">
                 <button className="text-muted hover:text-foreground transition-colors p-1.5 hover:bg-surface-light rounded-md hover:shadow-[0_0_22px_-10px_rgba(91,231,196,0.35)]">
                   <HelpCircle className="h-4 w-4" />

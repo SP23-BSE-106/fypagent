@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { LayoutDashboard, GitBranch, Terminal, CloudLightning, BarChart3, Sliders, ChevronLeft, ChevronRight, BookOpen, Boxes, LogOut, CreditCard, ListChecks, Plus, User } from "lucide-react";
+import { LayoutDashboard, GitBranch, Terminal, CloudLightning, BarChart3, Sliders, ChevronLeft, ChevronRight, BookOpen, Boxes, LogOut, CreditCard, ListChecks, Plus, User, Database } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -44,6 +44,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     { name: "Create Agent", href: "/dashboard/agents/create", icon: Plus },
     { name: "Workflow Builder", href: "/workflow-builder", icon: GitBranch },
     { name: "Testing Sandbox", href: "/testing-sandbox", icon: Terminal },
+    // The RAG console is a full page but had no entry point anywhere — it could
+    // only be reached by typing the URL.
+    { name: "Knowledge Base", href: "/dashboard/rag", icon: Database },
     { name: "Deployments", href: "/dashboard/deployment", icon: CloudLightning },
     { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
     { name: "Templates", href: "/dashboard/templates", icon: Boxes },
@@ -77,7 +80,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       </div>
       <nav className="flex-1 space-y-1.5 px-3 py-4 overflow-y-auto">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive =
+            item.href === "/dashboard"
+              ? pathname === item.href
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           // Avoid accidental redirects: keep nav active logic purely UI.
           // (This component relies on DashboardLayout for auth redirect.)

@@ -246,15 +246,25 @@ export async function GET(req: NextRequest) {
 
     const formattedDocs = await Promise.all(
       docs.map(async (doc) => {
+        const documentId = doc._id.toString()
         const chunkCount = await db
           .collection('rag_chunks')
-          .countDocuments({ documentId: doc._id.toString() })
+          .countDocuments({ documentId })
+
+        // "Fresh" means written by the model currently in use. Chunks embedded
+        // by an older model still have a vector but will not match the Atlas
+        // index, which is exactly what Rebuild Embeddings is for — so the table
+        // reports it instead of calling every document Active.
+        const embeddedCount = await db
+          .collection('rag_chunks')
+          .countDocuments({ documentId, embeddingModel: EMBEDDING_MODEL })
 
         return {
-          id: doc._id.toString(),
+          id: documentId,
           name: doc.name,
           preview: doc.preview || '',
           chunks: chunkCount,
+          embedded: embeddedCount,
           createdAt: doc.createdAt,
         }
       })

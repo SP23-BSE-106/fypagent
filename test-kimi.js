@@ -8,7 +8,7 @@ const invokeUrl = "https://integrate.api.nvidia.com/v1/chat/completions";
 const stream = true;
 
 const headers = {
-  "Authorization": "Bearer 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",
+  "Authorization": `Bearer ${process.env.NVIDIA_API_KEY}`,
   "Accept": stream ? "text/event-stream" : "application/json"
 };
 

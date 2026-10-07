@@ -223,6 +223,8 @@ function TestingSandboxInner() {
     ]);
 
     if (agentId) {
+      setEngine({ provider: 'Starting execution engine...', model: null })
+      setLogs((prev) => [...prev, { type: 'sys', text: 'Starting execution engine...', time: stamp() }])
       try {
         const execRes = await fetch('/api/execute', {
           method: 'POST',
@@ -263,6 +265,9 @@ function TestingSandboxInner() {
       }
       return
     }
+
+    setEngine({ provider: 'Starting RAG engine...', model: null })
+    setLogs((prev) => [...prev, { type: 'sys', text: 'Starting RAG engine...', time: stamp() }])
 
     try {
       const chatRes = await fetch("/api/rag/chat", {

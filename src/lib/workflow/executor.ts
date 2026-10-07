@@ -42,7 +42,7 @@ async function executeNode(node: { type?: string; name?: string; id?: string; co
       case 'llm': {
         const system = typeof node.config?.systemPrompt === 'string' && node.config.systemPrompt.trim()
           ? node.config.systemPrompt
-          : `You are the "${node.name || 'Agent'}" node in an AgentFlow workflow.`
+          : `You are the "${node.name || 'Agent'}" node in an AgentFlow workflow. Answer naturally and helpfully, like a human assistant.`
         const completion = await chatCompletion({ system, prompt: state, timeoutMs: 30_000 })
         if (!completion.ok) return { state, ok: false, summary: 'No inference provider answered.' }
         return { state: completion.text, ok: true, summary: `LLM answered via ${completion.provider || 'provider'}.`, provider: completion.provider, model: completion.model }

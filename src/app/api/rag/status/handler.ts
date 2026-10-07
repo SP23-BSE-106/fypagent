@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/mongo/mongo'
 import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
-import { EMBEDDING_DIMENSION, EMBEDDING_MODEL } from '@/lib/rag/embeddings'
+import { EMBEDDING_DIMENSION, EMBEDDING_MODEL, warmUpEmbeddingModel } from '@/lib/rag/embeddings'
 import { countStaleEmbeddings, getIndexStatus, VECTOR_INDEX_NAME } from '@/lib/rag/vectorStore'
 
 /**
@@ -18,6 +18,9 @@ export async function GET() {
 
     const payload = verifyJwt(token)
     const userId = String(payload.sub)
+
+    // Pre-warm the local embedding model so the first run does not pay the load cost.
+    warmUpEmbeddingModel()
 
     const db = await getDb()
 

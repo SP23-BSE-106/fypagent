@@ -59,12 +59,12 @@ export async function POST(req: NextRequest) {
 
     // ── Step 2: LLM Generation with RAG Context ───────────────────────────
     const systemPrompt = ragContext
-      ? `You are a helpful AI assistant. Answer the user's question using ONLY the following retrieved knowledge base documents as context. If the answer is not found in the context, say so clearly. Be concise but thorough.
+      ? `You are a helpful AI assistant. Answer the user's question using ONLY the following retrieved knowledge base documents as context. If the answer is not found in the context, say so clearly. Be concise but natural, human-friendly, and conversational.
 
 --- KNOWLEDGE BASE CONTEXT ---
 ${ragContext}
 --- END CONTEXT ---`
-      : `You are a helpful AI assistant. The user has no documents in their knowledge base yet. Let them know they should upload documents first, then answer as best you can from general knowledge.`
+      : `You are a helpful AI assistant. The user has no documents in their knowledge base yet. Let them know they should upload documents first, then answer as best you can from general knowledge. Be natural, human-friendly, and conversational.`
 
     // Optional third LLM endpoint. (Embeddings no longer use this key — they
     // are generated locally by the model in src/lib/rag/embeddings.ts.)

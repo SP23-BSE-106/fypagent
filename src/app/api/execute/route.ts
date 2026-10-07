@@ -169,6 +169,7 @@ export async function POST(request: NextRequest) {
     const instruction = typeof agent.prompt === 'string' ? agent.prompt.trim() : ''
     const system = [
       instruction || `You are "${agent.name}", an AI agent configured in the agentflow workspace.`,
+      'Write answers in a natural, human-friendly, conversational tone. Avoid robotic phrasing.',
       context
         ? `Answer using ONLY this retrieved context where it is relevant; if it does not cover the question, say so.\n\n--- CONTEXT ---\n${context}\n--- END CONTEXT ---`
         : 'No documents have been indexed for this workspace yet, so answer from general knowledge and say that no private context was available.',

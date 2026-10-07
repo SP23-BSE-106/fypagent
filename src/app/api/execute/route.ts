@@ -8,6 +8,7 @@ import { getDb } from '@/lib/mongo/mongo'
 import { chatCompletion } from '@/lib/llm'
 import { generateEmbedding } from '@/lib/rag/embeddings'
 import { searchChunks } from '@/lib/rag/vectorStore'
+import { executeWorkflow } from '@/lib/workflow/executor'
 
 // The model call below can take most of half a minute on a cold provider; the
 // route has to declare the budget or Vercel cuts the function off first.
@@ -98,6 +99,42 @@ export async function POST(request: NextRequest) {
       db.collection('personal_api_keys')
         .updateOne({ _id: keyId }, { $set: { lastUsedAt: new Date() } })
         .catch(() => undefined)
+    }
+
+    // If the agent carries a saved workflow graph, execute that graph rather
+    // than falling back to the single-turn RAG-only path.
+    if (Array.isArray(agent.workflow?.nodes) && agent.workflow.nodes.length > 0) {
+      const startedAt = Date.now()
+      const result = await executeWorkflow(agent.workflow, input.trim(), userId)
+      const durationMs = Date.now() - startedAt
+
+      await db.collection('workflow_runs').insertOne({
+        userId,
+        kind: 'exec',
+        agentId,
+        agentName: agent.name,
+        status: result.trace.every((step) => step.ok) ? 'success' : 'failed',
+        input: input.trim().slice(0, 2000),
+        output: result.output.slice(0, 4000),
+        sourceCount: result.sources.length,
+        durationMs,
+        provider: result.provider,
+        model: result.model,
+        error: result.trace.every((step) => step.ok) ? null : 'one or more nodes failed',
+        createdAt: new Date(),
+      }).catch(() => undefined)
+
+      return NextResponse.json({
+        executed: true,
+        agentId,
+        agentName: agent.name,
+        output: result.output,
+        model: result.model,
+        provider: result.provider,
+        sources: result.sources,
+        trace: result.trace,
+        executedAt: new Date().toISOString(),
+      })
     }
 
     // ── Retrieval ───────────────────────────────────────────────────────────

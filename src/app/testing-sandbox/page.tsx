@@ -222,6 +222,48 @@ function TestingSandboxInner() {
       { type: "exec", text: "[Node 2: RAG Retriever] Querying the vector index...", time: stamp() },
     ]);
 
+    if (agentId) {
+      try {
+        const execRes = await fetch('/api/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, input: question, topK: 3 }),
+          credentials: 'include',
+        })
+        const elapsedMs = Date.now() - startedAt
+        const execData = await execRes.json().catch(() => ({}))
+        if (!execRes.ok) {
+          const reason = execData.error || `HTTP ${execRes.status}`
+          setIsTyping(false)
+          setEngine(null)
+          setChatHistory((prev) => [...prev, { role: 'assistant', text: `Error: ${reason}` }])
+          setLogs((prev) => [...prev, { type: 'exec', text: `[Execution Engine] ✗ ${reason}`, time: stamp() }])
+          recordRun('exec', { input: question, output: reason, status: 'failed', durationMs: elapsedMs, error: reason })
+          return
+        }
+        const answer = execData.output || 'No answer was generated.'
+        const provider = execData.provider ?? null
+        const model = execData.model ?? null
+        const sources = Array.isArray(execData.sources) ? execData.sources : []
+        setEngine({ provider, model })
+        setIsTyping(false)
+        setChatHistory((prev) => [...prev, { role: 'assistant', text: answer }])
+        const traceLogs = Array.isArray(execData.trace)
+          ? execData.trace.map((step: any) => ({ type: 'exec', text: `[${step.name}] ${step.summary}`, time: stamp() }))
+          : []
+        setLogs((prev) => [...prev, ...traceLogs, { type: 'sys', text: `Execution recorded in the run history (${elapsedMs} ms).`, time: stamp() }])
+        recordRun('exec', { input: question, output: answer, status: 'success', durationMs: elapsedMs, sourceCount: sources.length, provider, model })
+      } catch (err) {
+        const elapsedMs = Date.now() - startedAt
+        const reason = err instanceof Error ? err.message : 'network failure'
+        setIsTyping(false)
+        setEngine(null)
+        setLogs((prev) => [...prev, { type: 'exec', text: `[ERROR] Network failure after ${elapsedMs} ms: ${reason}`, time: stamp() }])
+        recordRun('exec', { input: question, output: reason, status: 'failed', durationMs: elapsedMs, error: reason })
+      }
+      return
+    }
+
     try {
       const chatRes = await fetch("/api/rag/chat", {
         method: "POST",

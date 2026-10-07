@@ -213,6 +213,8 @@ function WorkflowBuilderInner() {
   const [saveBusy, setSaveBusy] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
   const [assistantInput, setAssistantInput] = React.useState("");
+  const [generateInput, setGenerateInput] = React.useState("");
+  const [generating, setGenerating] = React.useState(false);
   const [addMenuOpen, setAddMenuOpen] = React.useState(false);
   const [fitToken, setFitToken] = React.useState(0);
   const [canUndo, setCanUndo] = React.useState(false);
@@ -852,6 +854,35 @@ function WorkflowBuilderInner() {
     submitPrompt(assistantInput);
   };
 
+  const generateFromDescription = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const prompt = generateInput.trim();
+    if (!prompt || generating) return;
+    setGenerating(true);
+    setLogs((prev) => [...prev, `[AI] Generating workflow for: ${prompt}`]);
+    try {
+      const res = await fetch('/api/agents/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const workflow = data.workflow || data;
+      const mapped = mapWorkflowToCanvas(workflow);
+      setNodes(mapped.nodes);
+      setEdges(mapped.edges);
+      setFitToken((t) => t + 1);
+      setLogs((prev) => [...prev, `[AI] Generated workflow with ${mapped.nodes.length} node(s) and ${mapped.edges.length} edge(s).`]);
+      setAssistantMessages((prev) => [...prev, { role: 'assistant', content: `Workflow generated from your description. You can edit it with Kimi or drag nodes manually.` }]);
+      setGenerateInput('');
+    } catch (err) {
+      setLogs((prev) => [...prev, `[AI] Generation failed: ${err instanceof Error ? err.message : 'unknown error'}`]);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   /** Quick-command chip. The prompt rides on the element so this stays a named
    *  handler rather than a fresh closure per item. */
   const handleQuickCommand = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -918,6 +949,19 @@ function WorkflowBuilderInner() {
             cannot tell which node you mean, I say so instead of guessing.
           </p>
         </div>
+
+        <form onSubmit={generateFromDescription} className="space-y-2">
+          <textarea
+            value={generateInput}
+            onChange={(e) => setGenerateInput(e.target.value)}
+            placeholder="Describe a workflow and let Vibe Coding build it"
+            className="min-h-20 w-full rounded-lg border border-border bg-surface px-3 py-2 text-xs text-foreground placeholder:text-muted/60 focus:outline-none focus:border-accent/40"
+          />
+          <Button type="submit" size="sm" className="w-full" disabled={generating}>
+            <Bot className="mr-1.5 h-3.5 w-3.5" />
+            {generating ? 'Generating...' : 'Generate from description'}
+          </Button>
+        </form>
 
         <form onSubmit={handleAssistantSubmit} className="space-y-2">
           <textarea

@@ -121,13 +121,20 @@ export default function SettingsPage() {
   const [system, setSystem] = React.useState<SystemInfo | null>(null);
   const [systemLoading, setSystemLoading] = React.useState(true);
   const [systemError, setSystemError] = React.useState("");
+  const [workspace, setWorkspace] = React.useState<{
+    role?: string;
+    permissions?: Record<string, boolean>;
+    appearance?: { density?: string; accent?: string };
+  } | null>(null);
+  const [workspaceSaving, setWorkspaceSaving] = React.useState(false);
 
   React.useEffect(() => {
     const fetchSettings = async () => {
-      const [keysRes, profileRes, systemRes] = await Promise.all([
+      const [keysRes, profileRes, systemRes, workspaceRes] = await Promise.all([
         fetch("/api/settings/api-keys").then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch("/api/auth/profile").then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch("/api/settings/system").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch("/api/settings/workspace").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
 
       if (keysRes?.keys) setPersonalKeys(keysRes.keys);
@@ -139,6 +146,7 @@ export default function SettingsPage() {
 
       if (systemRes?.system) setSystem(systemRes.system);
       else setSystemError("System status is unavailable.");
+      if (workspaceRes?.settings) setWorkspace(workspaceRes.settings);
       setSystemLoading(false);
     };
     fetchSettings();
@@ -206,6 +214,24 @@ export default function SettingsPage() {
       setPrefsMessage(err instanceof Error ? err.message : "Failed to save preferences");
     } finally {
       setIsUpdatingPrefs(false);
+    }
+  };
+
+  const saveWorkspace = async (next: Record<string, unknown>) => {
+    setWorkspaceSaving(true);
+    try {
+      const res = await fetch('/api/settings/workspace', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to save workspace settings');
+      setWorkspace(data.settings || next);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setWorkspaceSaving(false);
     }
   };
 
@@ -321,6 +347,62 @@ export default function SettingsPage() {
                 </label>
 
                 <div className="h-4 text-[11px] text-accent">{prefsMessage}</div>
+              </div>
+            </Card>
+
+            {/* Roles & Customization */}
+            <Card className="p-6">
+              <CardHeader
+                icon={<Key className="h-5 w-5" />}
+                title="Roles & Customization"
+                subtitle="Control workspace role, permissions, and appearance."
+              />
+              <div className="space-y-4 text-xs">
+                <div className="space-y-1">
+                  <label className="text-muted">Workspace role</label>
+                  <select
+                    value={workspace?.role || 'admin'}
+                    onChange={(e) => saveWorkspace({ ...(workspace || {}), role: e.target.value })}
+                    disabled={workspaceSaving}
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-foreground"
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="editor">Editor</option>
+                    <option value="viewer">Viewer</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  {['canExecute', 'canDeploy', 'canManageKeys', 'canEditWorkflows'].map((field) => (
+                    <label key={field} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(workspace?.permissions?.[field])}
+                        onChange={(e) => saveWorkspace({
+                          ...(workspace || {}),
+                          permissions: { ...(workspace?.permissions || {}), [field]: e.target.checked },
+                        })}
+                        disabled={workspaceSaving}
+                        className="w-4 h-4 rounded border-gray-300 text-accent focus:ring-accent"
+                      />
+                      <span>{field}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-muted">Density</label>
+                  <select
+                    value={workspace?.appearance?.density || 'comfortable'}
+                    onChange={(e) => saveWorkspace({
+                      ...(workspace || {}),
+                      appearance: { ...(workspace?.appearance || {}), density: e.target.value },
+                    })}
+                    disabled={workspaceSaving}
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-foreground"
+                  >
+                    <option value="comfortable">Comfortable</option>
+                    <option value="compact">Compact</option>
+                  </select>
+                </div>
               </div>
             </Card>
           </div>

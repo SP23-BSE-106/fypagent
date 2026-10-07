@@ -14,6 +14,7 @@ import {
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/Table";
 import {
   Cpu,
@@ -164,6 +165,40 @@ export default function AnalyticsPage() {
   const totalNodes = agents.reduce((sum, agent) => sum + (agent.workflow?.nodes?.length ?? 0), 0);
   const activeAgents = agents.filter((agent) => agent.status === "active").length;
 
+  const toggleAgentStatus = async (agent: AnalyticsAgent) => {
+    const nextStatus = agent.status === "active" ? "paused" : "active";
+    try {
+      const res = await fetch(`/api/agents/${agent._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!res.ok) throw new Error("Failed to update agent status");
+      setAgents((prev) => prev.map((a) => (a._id === agent._id ? { ...a, status: nextStatus } : a)));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  React.useEffect(() => {
+    const interval = window.setInterval(async () => {
+      try {
+        const runsRes = await fetch('/api/agents/runs', { credentials: 'include' });
+        if (runsRes.ok) {
+          const runsData = await runsRes.json();
+          if (runsData && Array.isArray(runsData.runs)) {
+            setRuns(runsData.runs);
+            setRunSummary(runsData.summary ?? null);
+          }
+        }
+      } catch {
+        /* keep last known monitor data */
+      }
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   const stats = [
     { label: "Agents", value: String(agents.length), icon: Cpu },
     { label: "Workflow steps", value: String(totalNodes), icon: GitMerge },
@@ -294,6 +329,36 @@ export default function AnalyticsPage() {
             </div>
           </Card>
         </div>
+
+        {/* Agent controls */}
+        <Card className="p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+            <div className="space-y-1">
+              <CardTitle className="text-xs font-bold text-foreground">Agent controls</CardTitle>
+              <CardDescription className="text-[10px]">Pause or resume agents without deleting their workflows.</CardDescription>
+            </div>
+            <Badge variant={agents.some((a) => a.status === "paused") ? "warning" : "success"}>
+              {agents.filter((a) => a.status === "active").length} active / {agents.filter((a) => a.status === "paused").length} paused
+            </Badge>
+          </div>
+          {agents.length === 0 ? (
+            <EmptyState title="No agents yet" hint="Create an agent to control it here." />
+          ) : (
+            <div className="space-y-2">
+              {agents.map((agent) => (
+                <div key={agent._id} className="flex items-center justify-between border border-border/50 rounded-lg p-3">
+                  <div>
+                    <div className="text-sm font-semibold">{agent.name}</div>
+                    <div className="text-[10px] text-muted">{agent.workflow?.nodes?.length ?? 0} nodes · {agent.workflow?.edges?.length ?? 0} edges</div>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => toggleAgentStatus(agent)}>
+                    {agent.status === "active" ? "Pause" : "Resume"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
 
         {/* Execution monitor — measured by POST /api/agents/runs */}
         <Card className="p-6">

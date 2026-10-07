@@ -2,68 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
 import type { WorkflowGraph } from '@/lib/mongo/workflow'
+import { WORKFLOW_TEMPLATES } from '@/lib/workflow/templates'
 
 // ─── Dev-mode mock ───────────────────────────────────────────────────────────
 // Used automatically when NEXT_PUBLIC_MOCK_LLM=true OR when the inference
 // server is unreachable in development (NODE_ENV !== 'production').
 
 function buildMockWorkflow(prompt: string): WorkflowGraph {
-  const words = prompt.toLowerCase()
-  const hasKnowledge = words.includes('knowledge') || words.includes('doc') || words.includes('pdf') || words.includes('search') || words.includes('faq')
-  const hasAction = words.includes('send') || words.includes('email') || words.includes('notify') || words.includes('update') || words.includes('post') || words.includes('api') || words.includes('webhook')
-  const hasDecision = words.includes('if') || words.includes('condition') || words.includes('route') || words.includes('classify')
-  const hasDatabase = words.includes('database') || words.includes('crm') || words.includes('record') || words.includes('save') || words.includes('log')
+  const lower = prompt.toLowerCase()
+  const scored = WORKFLOW_TEMPLATES.map((template) => ({
+    template,
+    score: template.keywords.reduce((total, keyword) => total + (lower.includes(keyword) ? 2 : 0), 0),
+  })).sort((a, b) => b.score - a.score)
 
-  const nodes = [
-    {
-      id: 'node_1',
-      name: 'Input Trigger',
-      type: 'trigger' as const,
-      description: 'Receives the incoming event, request, or webhook payload from the real system.',
-    },
-    {
-      id: 'node_2',
-      name: 'Validate Payload',
-      type: 'condition' as const,
-      description: 'Checks that the request contains the required fields before any work proceeds.',
-    },
-    {
-      id: 'node_3',
-      name: 'Classify Intent',
-      type: 'llm' as const,
-      description: 'Uses the model to determine the intent, priority, and required next step from the input.',
-    },
-    ...(hasKnowledge ? [{
-      id: 'node_4',
-      name: 'Retrieve Knowledge Context',
-      type: 'rag' as const,
-      description: 'Searches the uploaded files, policy notes, or knowledge base for relevant context.',
-    }] : []),
-    ...(hasDatabase ? [{
-      id: 'node_5',
-      name: 'Read or Update Data Store',
-      type: 'api' as const,
-      description: 'Reads from or writes to the connected database, CRM, or internal system.',
-    }] : []),
-    ...(hasAction ? [{
-      id: hasDatabase ? 'node_6' : 'node_5',
-      name: 'Perform Action',
-      type: 'api' as const,
-      description: 'Calls the target API, sends the message, or triggers the downstream workflow step.',
-    }] : []),
-    {
-      id: 'node_out',
-      name: 'Return Result',
-      type: 'output' as const,
-      description: 'Returns the final response, status, or action summary to the calling system.',
-    },
-  ]
-
-  const edges = nodes.slice(0, -1).map((n, i) => ({
-    id: `edge_${i + 1}`,
-    source: n.id,
-    target: nodes[i + 1].id,
-  }))
+  const selected = scored[0]?.template ?? WORKFLOW_TEMPLATES[0]
 
   const agentName = prompt
     .replace(/[^a-zA-Z0-9 ]/g, ' ')
@@ -73,12 +25,16 @@ function buildMockWorkflow(prompt: string): WorkflowGraph {
     .map((w) => w[0].toUpperCase() + w.slice(1))
     .join(' ') + ' Agent'
 
+  // Copy the template graph so the caller receives a fresh object and the
+  // shared template stays immutable.
+  const graph = JSON.parse(JSON.stringify(selected.graph)) as WorkflowGraph
+  const customName = agentName.trim() || selected.name
   return {
     // @ts-expect-error — name/description are extra convenience fields
-    name: agentName,
-    description: `Concrete workflow for: "${prompt.slice(0, 80)}${prompt.length > 80 ? '…' : ''}". Each node is designed to map to a real action in the final system.`,
-    nodes,
-    edges,
+    name: customName,
+    description: `Generated from the "${selected.name}" pattern for: "${prompt.slice(0, 80)}${prompt.length > 80 ? '…' : ''}".`,
+    nodes: graph.nodes,
+    edges: graph.edges,
   }
 }
 

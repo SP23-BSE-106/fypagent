@@ -4,10 +4,12 @@ import { dispatch, type DispatchContext } from '@/lib/api/routeDispatch'
 
 import * as apiKeys from '../api-keys/handler'
 import * as system from '../system/handler'
+import * as workspace from '../workspace/handler'
 
 const routes = {
   'api-keys': apiKeys,
   system,
+  workspace,
 }
 
 function handle(method: string) {

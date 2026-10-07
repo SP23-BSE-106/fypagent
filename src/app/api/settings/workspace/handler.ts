@@ -25,6 +25,9 @@ const DEFAULTS = {
     density: 'comfortable',
     accent: 'emerald',
   },
+  defaults: {
+    topK: 3,
+  },
 }
 
 export async function GET() {
@@ -46,15 +49,20 @@ export async function POST(request: NextRequest) {
   const role = ['admin', 'editor', 'viewer'].includes(body.role) ? body.role : DEFAULTS.role
   const permissions = { ...DEFAULTS.permissions, ...(body.permissions || {}) }
   const appearance = { ...DEFAULTS.appearance, ...(body.appearance || {}) }
+  const defaults = {
+    ...DEFAULTS.defaults,
+    ...(body.defaults || {}),
+    topK: Number.isFinite(Number(body.defaults?.topK)) ? Math.min(10, Math.max(1, Math.round(Number(body.defaults.topK)))) : DEFAULTS.defaults.topK,
+  }
 
   const db = await getDb()
   await db.collection('workspace_settings').updateOne(
     { userId: auth.userId },
-    { $set: { userId: auth.userId, role, permissions, appearance, updatedAt: new Date() } },
+    { $set: { userId: auth.userId, role, permissions, appearance, defaults, updatedAt: new Date() } },
     { upsert: true },
   )
 
-  return NextResponse.json({ success: true, settings: { role, permissions, appearance } })
+  return NextResponse.json({ success: true, settings: { role, permissions, appearance, defaults } })
 }
 
 export async function PATCH(request: NextRequest) {

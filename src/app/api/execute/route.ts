@@ -83,7 +83,20 @@ export async function POST(request: NextRequest) {
     if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
     const { db, userId, keyId } = auth
 
-    const { agentId, input, topK = 3 } = body
+    const { agentId, input, topK } = body
+
+    const workspaceSettings = await db.collection('workspace_settings').findOne({ userId })
+    const permissions = workspaceSettings?.permissions || {}
+    if (permissions.canExecute === false) {
+      return NextResponse.json({ error: 'Execution permission is disabled for this workspace.' }, { status: 403 })
+    }
+
+    const requestedTopK = Number.isFinite(Number(topK)) ? Math.min(10, Math.max(1, Math.round(Number(topK)))) : null
+    let effectiveTopK = requestedTopK
+    if (effectiveTopK === null) {
+      const savedTopK = Number(workspaceSettings?.defaults?.topK)
+      effectiveTopK = Number.isFinite(savedTopK) && savedTopK > 0 ? Math.min(10, Math.max(1, Math.round(savedTopK))) : 3
+    }
 
     if (!input || typeof input !== 'string' || !input.trim()) {
       return NextResponse.json({ error: 'input is required' }, { status: 400 })
@@ -105,7 +118,7 @@ export async function POST(request: NextRequest) {
     // than falling back to the single-turn RAG-only path.
     if (Array.isArray(agent.workflow?.nodes) && agent.workflow.nodes.length > 0) {
       const startedAt = Date.now()
-      const result = await executeWorkflow(agent.workflow, input.trim(), userId)
+      const result = await executeWorkflow(agent.workflow, input.trim(), userId, { topK: effectiveTopK })
       const durationMs = Date.now() - startedAt
 
       await db.collection('workflow_runs').insertOne({
@@ -143,7 +156,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const queryVector = await generateEmbedding(input.trim())
-      const { hits } = await searchChunks({ userId, queryVector, topK })
+      const { hits } = await searchChunks({ userId, queryVector, topK: effectiveTopK })
       for (const hit of hits) {
         sources.push({ text: hit.text.slice(0, 300), similarity: hit.similarity })
       }

@@ -99,6 +99,10 @@ export async function POST(request: NextRequest) {
   const encryptedKey = userApiKey?.trim() ? encrypt(userApiKey.trim()) : undefined
 
   const db = await getDb()
+  const settings = await db.collection('workspace_settings').findOne({ userId })
+  if (settings?.permissions?.canEditWorkflows === false) {
+    return NextResponse.json({ error: 'Workflow editing permission is disabled for this workspace.' }, { status: 403 })
+  }
   await ensureAgentNameIndex(db)
   // Agents saved before uniqueness was enforced can still share a name; clean
   // those up first so the list we are about to compare against is truthful.

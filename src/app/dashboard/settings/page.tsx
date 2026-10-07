@@ -125,6 +125,7 @@ export default function SettingsPage() {
     role?: string;
     permissions?: Record<string, boolean>;
     appearance?: { density?: string; accent?: string };
+    defaults?: { topK?: number };
   } | null>(null);
   const [workspaceSaving, setWorkspaceSaving] = React.useState(false);
 
@@ -366,10 +367,13 @@ export default function SettingsPage() {
                     disabled={workspaceSaving}
                     className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-foreground"
                   >
-                    <option value="admin">Admin</option>
-                    <option value="editor">Editor</option>
-                    <option value="viewer">Viewer</option>
+                    <option value="admin">Admin — full access</option>
+                    <option value="editor">Editor — create and edit</option>
+                    <option value="viewer">Viewer — read only</option>
                   </select>
+                  <p className="text-[10px] text-muted">
+                    Viewer is intended for people who should only inspect workflows and analytics.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   {['canExecute', 'canDeploy', 'canManageKeys', 'canEditWorkflows'].map((field) => (
@@ -402,6 +406,29 @@ export default function SettingsPage() {
                     <option value="comfortable">Comfortable</option>
                     <option value="compact">Compact</option>
                   </select>
+                  <p className="text-[10px] text-muted">
+                    Density controls how spacious the dashboard feels: comfortable has more padding, compact is tighter.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-muted">Default retrieval top-K</label>
+                  <select
+                    value={workspace?.defaults?.topK ?? 3}
+                    onChange={(e) => saveWorkspace({
+                      ...(workspace || {}),
+                      defaults: { ...(workspace?.defaults || {}), topK: Number(e.target.value) },
+                    })}
+                    disabled={workspaceSaving}
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-foreground"
+                  >
+                    {[1, 3, 5, 10].map((value) => (
+                      <option key={value} value={value}>{value}</option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-muted">
+                    This is the default number of retrieved document chunks used when answering RAG questions.
+                  </p>
                 </div>
               </div>
             </Card>

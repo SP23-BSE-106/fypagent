@@ -33,7 +33,7 @@ async function executeApiNode(config: Record<string, unknown> | undefined, state
   return text.slice(0, 4000)
 }
 
-async function executeNode(node: { type?: string; name?: string; id?: string; config?: Record<string, unknown> }, state: string, userId: string, sources: Array<{ text: string; similarity: number }>): Promise<{ state: string; ok: boolean; summary: string; provider?: string | null; model?: string | null }> {
+async function executeNode(node: { type?: string; name?: string; id?: string; config?: Record<string, unknown> }, state: string, userId: string, sources: Array<{ text: string; similarity: number }>, topK = 3): Promise<{ state: string; ok: boolean; summary: string; provider?: string | null; model?: string | null }> {
   const start = Date.now()
   try {
     switch (node.type) {
@@ -49,7 +49,7 @@ async function executeNode(node: { type?: string; name?: string; id?: string; co
       }
       case 'rag': {
         const queryVector = await generateEmbedding(state)
-        const { hits } = await searchChunks({ userId, queryVector, topK: 3 })
+        const { hits } = await searchChunks({ userId, queryVector, topK })
         for (const hit of hits) sources.push({ text: hit.text.slice(0, 300), similarity: hit.similarity })
         const context = hits.map((hit, i) => `[Chunk ${i + 1}]\n${hit.text}`).join('\n\n')
         return { state: context || state, ok: true, summary: `Retrieved ${hits.length} chunk(s).` }
@@ -80,7 +80,7 @@ async function executeNode(node: { type?: string; name?: string; id?: string; co
   }
 }
 
-export async function executeWorkflow(graph: WorkflowGraph, input: string, userId: string): Promise<ExecutionResult> {
+export async function executeWorkflow(graph: WorkflowGraph, input: string, userId: string, options?: { topK?: number }): Promise<ExecutionResult> {
   const nodes = graph?.nodes || []
   const edges = graph?.edges || []
   const trace: TraceStep[] = []
@@ -113,7 +113,7 @@ export async function executeWorkflow(graph: WorkflowGraph, input: string, userI
     if (!node) continue
 
     const start = Date.now()
-    const result = await executeNode(node, state, userId, sources)
+    const result = await executeNode(node, state, userId, sources, options?.topK ?? 3)
     trace.push({ nodeId: node.id, name: node.name, type: node.type, ok: result.ok, durationMs: Date.now() - start, summary: result.summary })
     if (result.provider) provider = result.provider
     if (result.model) model = result.model

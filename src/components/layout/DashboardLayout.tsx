@@ -60,6 +60,16 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
   // failures out of the execution monitor, and only once that has loaded.
   const [failedRuns, setFailedRuns] = React.useState(0);
   const [runsLoaded, setRunsLoaded] = React.useState(false);
+  const [density, setDensity] = React.useState<'comfortable' | 'compact'>('comfortable');
+
+  React.useEffect(() => {
+    fetch('/api/settings/workspace')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.settings?.appearance?.density === 'compact') setDensity('compact');
+      })
+      .catch(() => undefined);
+  }, []);
 
 
   React.useEffect(() => {
@@ -258,7 +268,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         </header>
         <TrialBanner />
         <ExpirationLockModal />
-        <main className="flex-1 overflow-y-auto p-6 bg-[linear-gradient(to_bottom,rgba(19,26,35,0.55),rgba(11,15,20,0.35))]">
+        <main className={`flex-1 overflow-y-auto ${density === 'compact' ? 'p-4' : 'p-6'} bg-[linear-gradient(to_bottom,rgba(19,26,35,0.55),rgba(11,15,20,0.35))]`}>
           <div className="mx-auto max-w-7xl h-full relative">
             {children}
           </div>

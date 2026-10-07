@@ -44,6 +44,12 @@ export async function POST(request: NextRequest) {
     const payload = verifyJwt(token)
     const userId = payload.sub
 
+    const db = await getDb()
+    const workspaceSettings = await db.collection('workspace_settings').findOne({ userId })
+    if (workspaceSettings?.permissions?.canManageKeys === false) {
+      return NextResponse.json({ error: 'API key management is disabled for this workspace.' }, { status: 403 })
+    }
+
     const rl = rateLimit(`settings:api-keys:${userId}`, { windowMs: 60_000, max: 10 })
     if (!rl.ok) {
       return NextResponse.json(
@@ -55,7 +61,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}))
     const name = body.name || 'Untitled Key'
 
-    const db = await getDb()
     const keysCollection = db.collection('personal_api_keys')
 
     // BR-20: Maximum 5 active API keys per user account
@@ -115,6 +120,11 @@ export async function DELETE(request: NextRequest) {
     }
 
     const db = await getDb()
+    const workspaceSettings = await db.collection('workspace_settings').findOne({ userId })
+    if (workspaceSettings?.permissions?.canManageKeys === false) {
+      return NextResponse.json({ error: 'API key management is disabled for this workspace.' }, { status: 403 })
+    }
+
     const keysCollection = db.collection('personal_api_keys')
 
     const result = await keysCollection.deleteOne({

@@ -59,6 +59,11 @@ export async function DELETE(
   }
 
   const db = await getDb()
+  const settings = await db.collection('workspace_settings').findOne({ userId })
+  if (settings?.permissions?.canEditWorkflows === false) {
+    return NextResponse.json({ error: 'Workflow editing permission is disabled for this workspace.' }, { status: 403 })
+  }
+
   const result = await db
     .collection('agents')
     .deleteOne({ _id: new ObjectId(id), userId })
@@ -93,6 +98,10 @@ export async function PATCH(
   }
 
   const db = await getDb()
+  const settings = await db.collection('workspace_settings').findOne({ userId })
+  if (settings?.permissions?.canEditWorkflows === false) {
+    return NextResponse.json({ error: 'Workflow editing permission is disabled for this workspace.' }, { status: 403 })
+  }
 
   // A rename goes through the same rules as a create — otherwise renaming one
   // agent onto another would quietly break the "no two agents share a name"

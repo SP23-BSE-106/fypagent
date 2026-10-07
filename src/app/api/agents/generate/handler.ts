@@ -106,20 +106,27 @@ You MUST output ONLY valid JSON in the following format:
 Do not wrap your response in markdown blocks like \`\`\`json. Just output the raw JSON object.`;
 
   const endpoints = [
-    // Primary: HuggingFace Router
+    // OpenRouter is the first configured agent-generation provider.
+    {
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      key: process.env.OPENROUTER_API_KEY,
+      model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o',
+      name: 'OpenRouter (GPT-4o)'
+    },
+    // Agent creation uses HuggingFace's Together provider, as before.
     {
       url: 'https://router.huggingface.co/v1/chat/completions',
       key: process.env.HF_TOKEN,
-      model: 'moonshotai/Kimi-K3:together',
-      name: 'HuggingFace (Kimi K3)'
+      model: process.env.HF_MODEL || 'moonshotai/Kimi-K3:together',
+      name: 'HuggingFace/Together (Kimi K3)'
     },
     // Fallback: NVIDIA API
     {
       url: 'https://integrate.api.nvidia.com/v1/chat/completions',
       key: process.env.NVIDIA_API_KEY,
-      model: 'moonshotai/kimi-k3',
+      model: process.env.NVIDIA_MODEL || 'moonshotai/kimi-k3',
       name: 'NVIDIA (Kimi K3)'
-    }
+    },
   ]
 
   let inferenceRes: Response | null = null
@@ -138,7 +145,13 @@ Do not wrap your response in markdown blocks like \`\`\`json. Just output the ra
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${ep.key}`,
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          ...(ep.url.includes('openrouter.ai')
+            ? {
+                'HTTP-Referer': process.env.OPENROUTER_SITE_URL || 'http://localhost:3000',
+                'X-Title': process.env.OPENROUTER_SITE_NAME || 'AgentFlow',
+              }
+            : {}),
         },
         body: JSON.stringify({
           model: ep.model,

@@ -84,7 +84,7 @@ ${ragContext}
         : 'The AI model is temporarily unavailable. Please try again shortly.'
 
     if (!completion.ok) {
-      console.warn('[rag/chat] no inference provider accepted the request')
+      console.warn('[rag/chat] no inference provider accepted the request', completion.failures)
     }
 
     return NextResponse.json({

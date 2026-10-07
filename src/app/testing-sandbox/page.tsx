@@ -235,7 +235,14 @@ function TestingSandboxInner() {
         const elapsedMs = Date.now() - startedAt
         const execData = await execRes.json().catch(() => ({}))
         if (!execRes.ok) {
-          const reason = execData.error || `HTTP ${execRes.status}`
+          const providerFailures = Array.isArray(execData.failures)
+            ? execData.failures
+                .map((failure: any) => `${failure.provider}: ${failure.message || `HTTP ${failure.status || "error"}`}`)
+                .join(" | ")
+            : ""
+          const reason = [execData.error || `HTTP ${execRes.status}`, providerFailures]
+            .filter(Boolean)
+            .join(" ")
           setIsTyping(false)
           setEngine(null)
           setChatHistory((prev) => [...prev, { role: 'assistant', text: `Error: ${reason}` }])

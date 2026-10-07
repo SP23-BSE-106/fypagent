@@ -178,9 +178,11 @@ export async function POST(request: NextRequest) {
     const completion = await chatCompletion({ system, prompt: input.trim(), timeoutMs: 30_000 })
 
     if (!completion.ok) {
+      console.warn('[execute] no inference provider accepted the request', completion.failures)
       return NextResponse.json(
         {
-          error: 'No inference provider accepted the request. Check that HF_TOKEN or NVIDIA_API_KEY is configured and try again.',
+          error: 'No inference provider accepted the request.',
+          failures: completion.failures,
         },
         { status: 502 },
       )

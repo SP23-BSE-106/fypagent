@@ -33,7 +33,7 @@ async function executeApiNode(config: Record<string, unknown> | undefined, state
   return text.slice(0, 4000)
 }
 
-async function executeNode(node: { type?: string; name?: string; id?: string; config?: Record<string, unknown> }, state: string, userId: string, sources: Array<{ text: string; similarity: number }>, topK = 3): Promise<{ state: string; ok: boolean; summary: string; provider?: string | null; model?: string | null }> {
+async function executeNode(node: { type?: string; name?: string; id?: string; config?: Record<string, unknown> }, state: string, userId: string, sources: Array<{ text: string; similarity: number }>, topK = 3, originalInput = state): Promise<{ state: string; ok: boolean; summary: string; provider?: string | null; model?: string | null }> {
   const start = Date.now()
   try {
     switch (node.type) {
@@ -43,7 +43,10 @@ async function executeNode(node: { type?: string; name?: string; id?: string; co
         const system = typeof node.config?.systemPrompt === 'string' && node.config.systemPrompt.trim()
           ? node.config.systemPrompt
           : `You are the "${node.name || 'Agent'}" node in an AgentFlow workflow. Answer naturally and helpfully, like a human assistant.`
-        const completion = await chatCompletion({ system, prompt: state, timeoutMs: 30_000 })
+        const completionPrompt = state && state !== originalInput
+          ? `Original question: ${originalInput}\n\nRetrieved context:\n${state}`
+          : originalInput
+        const completion = await chatCompletion({ system, prompt: completionPrompt, timeoutMs: 30_000 })
         if (!completion.ok) return { state, ok: false, summary: 'No inference provider answered.' }
         return { state: completion.text, ok: true, summary: `LLM answered via ${completion.provider || 'provider'}.`, provider: completion.provider, model: completion.model }
       }
@@ -113,7 +116,7 @@ export async function executeWorkflow(graph: WorkflowGraph, input: string, userI
     if (!node) continue
 
     const start = Date.now()
-    const result = await executeNode(node, state, userId, sources, options?.topK ?? 3)
+    const result = await executeNode(node, state, userId, sources, options?.topK ?? 3, input)
     trace.push({ nodeId: node.id, name: node.name, type: node.type, ok: result.ok, durationMs: Date.now() - start, summary: result.summary })
     if (result.provider) provider = result.provider
     if (result.model) model = result.model

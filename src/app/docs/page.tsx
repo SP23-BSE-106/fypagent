@@ -43,8 +43,8 @@ export default function DocsPage() {
   "agentId": "665f0c1e8b3f2a0012345678",
   "agentName": "Support Triage Agent",
   "output": "Refunds are available within 14 days of purchase…",
-  "model": "moonshotai/kimi-k3",
-  "provider": "HuggingFace (Kimi K3)",
+  "model": "openai/gpt-4o",
+  "provider": "OpenRouter (GPT-4o)",
   "sources": [
     { "text": "Refunds are issued within 14 days…", "similarity": 0.81 }
   ],

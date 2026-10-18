@@ -221,12 +221,12 @@ function WorkflowBuilderInner() {
   const [assistantMessages, setAssistantMessages] = React.useState<Array<{ role: "assistant" | "user"; content: string }>>([
     {
       role: "assistant",
-      content: "Kimi is ready. Ask me to add, remove, rename or connect nodes and I'll update the canvas instantly.",
+      content: "OpenRouter GPT-4o is ready. Ask me to add, remove, rename or connect nodes and I'll update the canvas instantly.",
     },
   ]);
   const [logs, setLogs] = React.useState<string[]>([
     "[SYSTEM] Workflow canvas initialized.",
-    "[SYSTEM] Waiting for a workflow or a prompt from Kimi Assistant...",
+    "[SYSTEM] Waiting for a workflow or a prompt from OpenRouter GPT-4o...",
   ]);
 
   // ── Undo history ────────────────────────────────────────────────────────
@@ -874,7 +874,7 @@ function WorkflowBuilderInner() {
       setEdges(mapped.edges);
       setFitToken((t) => t + 1);
       setLogs((prev) => [...prev, `[AI] Generated workflow with ${mapped.nodes.length} node(s) and ${mapped.edges.length} edge(s).`]);
-      setAssistantMessages((prev) => [...prev, { role: 'assistant', content: `Workflow generated from your description. You can edit it with Kimi or drag nodes manually.` }]);
+      setAssistantMessages((prev) => [...prev, { role: 'assistant', content: `Workflow generated from your description. You can edit it with OpenRouter GPT-4o or drag nodes manually.` }]);
       setGenerateInput('');
     } catch (err) {
       setLogs((prev) => [...prev, `[AI] Generation failed: ${err instanceof Error ? err.message : 'unknown error'}`]);
@@ -936,7 +936,7 @@ function WorkflowBuilderInner() {
   const renderRightPanel = () => (
     <div className="flex-grow flex flex-col min-h-0 text-left select-none">
       <div className="p-4 border-b border-border/40 flex items-center justify-between">
-        <span className="text-xs font-bold text-foreground uppercase tracking-wide">Kimi Assistant</span>
+        <span className="text-xs font-bold text-foreground uppercase tracking-wide">OpenRouter GPT-4o Assistant</span>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         <div className="rounded-xl border border-accent/20 bg-accent/10 p-3">
@@ -979,7 +979,7 @@ function WorkflowBuilderInner() {
           />
           <Button type="submit" size="sm" className="w-full">
             <Send className="mr-1.5 h-3.5 w-3.5" />
-            Send to Kimi
+            Send to OpenRouter GPT-4o
           </Button>
         </form>
 
@@ -1003,7 +1003,7 @@ function WorkflowBuilderInner() {
         <div className="space-y-2">
           {assistantMessages.map((msg, index) => (
             <div key={`${msg.role}-${index}`} className={`rounded-lg border px-3 py-2 text-[10px] leading-relaxed ${msg.role === "assistant" ? "border-accent/20 bg-accent/10 text-foreground" : "border-border/50 bg-surface/80 text-muted"}`}>
-              <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider opacity-70">{msg.role === "assistant" ? "Kimi" : "You"}</div>
+              <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider opacity-70">{msg.role === "assistant" ? "OpenRouter GPT-4o" : "You"}</div>
               <div className="whitespace-pre-line">{msg.content}</div>
             </div>
           ))}
@@ -1225,7 +1225,7 @@ function WorkflowBuilderInner() {
             <div className="max-w-md rounded-2xl border border-dashed border-border/70 bg-surface/80 px-6 py-5 text-center shadow-lg backdrop-blur">
               <p className="text-sm font-semibold text-foreground">Canvas is ready for your workflow</p>
               <p className="mt-2 text-xs leading-relaxed text-muted">
-                Use Add Node above, the library on the left, or Kimi Assistant to place the first nodes and shape the
+                Use Add Node above, the library on the left, or OpenRouter GPT-4o Assistant to place the first nodes and shape the
                 flow.
               </p>
             </div>

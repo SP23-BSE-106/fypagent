@@ -365,7 +365,7 @@ export default function CreateAgentPage() {
               Create Agent
             </h2>
             <p className="text-xs text-muted max-w-xl">
-              Describe your agent in plain English. The Kimi AI model will
+              Describe your agent in plain English. The OpenRouter GPT-4o model will
               compile a structured workflow graph — then add your LLM key and save.
             </p>
           </div>
@@ -400,7 +400,7 @@ export default function CreateAgentPage() {
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <span className="text-[10px] text-muted flex items-center gap-1.5">
                       <Sparkles className="h-3.5 w-3.5 text-accent animate-pulse" />
-                      Powered by Kimi AI API
+                      Powered by OpenRouter GPT-4o
                     </span>
                     <div className="flex flex-wrap items-center gap-2">
                       <input
@@ -436,7 +436,7 @@ export default function CreateAgentPage() {
                   <div className="flex items-center gap-3 mb-4">
                     <Loader2 className="h-4 w-4 text-accent animate-spin" />
                     <span className="text-xs font-bold text-foreground">
-                      Kimi is compiling your workflow…
+                      OpenRouter GPT-4o is compiling your workflow…
                     </span>
                   </div>
                   <div className="space-y-2 font-mono">
@@ -557,7 +557,7 @@ export default function CreateAgentPage() {
                 </p>
                 <ul className="space-y-1.5 text-[10px] text-muted">
                   <li className="flex gap-2"><span className="text-accent font-bold">1.</span> You describe the agent goal</li>
-                  <li className="flex gap-2"><span className="text-accent font-bold">2.</span> Kimi AI generates the workflow graph</li>
+                  <li className="flex gap-2"><span className="text-accent font-bold">2.</span> OpenRouter GPT-4o generates the workflow graph</li>
                   <li className="flex gap-2"><span className="text-accent font-bold">3.</span> Add knowledge-base context and runtime credentials</li>
                   <li className="flex gap-2"><span className="text-accent font-bold">4.</span> Save and open in Canvas</li>
                 </ul>

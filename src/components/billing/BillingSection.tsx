@@ -1,16 +1,21 @@
 "use client"
 
 import * as React from "react"
-import { CreditCard, Check, Shield, AlertCircle, Smartphone, Building2, Send } from "lucide-react"
+import { CreditCard, Check, AlertCircle, Smartphone, Building2, Send } from "lucide-react"
 import { Card } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 
+type BillingProfile = {
+  email?: string
+  subscriptionStatus?: string
+  subscriptionPlan?: string
+}
+
 export function BillingSection() {
   // Session return & status check
-  const [verifyingSession, setVerifyingSession] = React.useState(false)
   const [sessionSuccessMsg, setSessionSuccessMsg] = React.useState("")
-  const [profile, setProfile] = React.useState<any>(null)
+  const [profile, setProfile] = React.useState<BillingProfile | null>(null)
 
   const fetchProfile = React.useCallback(async () => {
     try {
@@ -25,6 +30,8 @@ export function BillingSection() {
   }, [])
 
   React.useEffect(() => {
+    // The profile request updates client state after the external API responds.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchProfile()
 
     if (typeof window !== "undefined") {
@@ -33,7 +40,6 @@ export function BillingSection() {
       const success = params.get("success")
 
       if (sessionId && success === "true") {
-        setVerifyingSession(true)
         fetch("/api/payments/verify-session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -47,7 +53,6 @@ export function BillingSection() {
             }
           })
           .catch((err) => console.error("Session verification error:", err))
-          .finally(() => setVerifyingSession(false))
       }
     }
   }, [fetchProfile])
@@ -76,8 +81,8 @@ export function BillingSection() {
       } else {
         alert(data.error || "Failed to initiate Stripe Checkout")
       }
-    } catch (err: any) {
-      alert("Error connecting to checkout server: " + err.message)
+    } catch (err: unknown) {
+      alert("Error connecting to checkout server: " + (err instanceof Error ? err.message : String(err)))
     } finally {
       setIsRedirectingStripe(false)
     }
@@ -115,8 +120,8 @@ export function BillingSection() {
       setTransactionId("")
       setSenderPhone("")
       setNote("")
-    } catch (err: any) {
-      setLocalErrorMsg(err.message || "Failed to process local payment submission")
+    } catch (err: unknown) {
+      setLocalErrorMsg(err instanceof Error ? err.message : "Failed to process local payment submission")
     } finally {
       setIsSubmittingLocal(false)
     }

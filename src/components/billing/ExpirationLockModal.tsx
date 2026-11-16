@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Lock, AlertTriangle, ArrowRight, ShieldAlert } from "lucide-react"
+import { Lock, ArrowRight, ShieldAlert } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 
 export function ExpirationLockModal() {

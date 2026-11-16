@@ -24,7 +24,7 @@ async function initCollections() {
   const results: Record<string, { inserted: boolean }> = {}
 
   for (const name of COLLECTIONS) {
-    const col = db.collection(name)
+    const col = db.collection<{ _id: string; createdAt: Date }>(name)
 
     const existing = await col.findOne({})
     if (existing) {
@@ -35,7 +35,7 @@ async function initCollections() {
     await col.insertOne({
       _id: `${name}:dev-init`,
       createdAt: new Date(),
-    } as any)
+    })
 
     results[name] = { inserted: true }
   }
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   const results: Record<string, { inserted: boolean }> = {}
 
   for (const name of COLLECTIONS) {
-    const col = db.collection(name)
+    const col = db.collection<{ _id: string; createdAt: Date }>(name)
 
     // If it exists (has at least one document), do nothing.
     // Note: Mongo creates collections on first insert; checking is cheap.
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       // Use an ObjectId-like string to avoid type issues.
       _id: `${name}:dev-init`,
       createdAt: new Date(),
-    } as any)
+    })
 
 
     results[name] = { inserted: true }

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { UploadCloud, FileText, Trash2, Search, Cpu, CheckCircle, RefreshCw, AlertCircle, Sparkles } from "lucide-react";
+import { UploadCloud, FileText, Trash2, Search, Cpu, CheckCircle, Sparkles } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -16,6 +16,11 @@ interface DocumentItem {
   createdAt: string;
 }
 
+interface QueryResult {
+  similarity: number;
+  text: string;
+}
+
 export default function DocumentCenterPage() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [isUploading, setIsUploading] = React.useState(false);
@@ -26,7 +31,7 @@ export default function DocumentCenterPage() {
   // Search Test State
   const [testQuery, setTestQuery] = React.useState("");
   const [isQuerying, setIsQuerying] = React.useState(false);
-  const [queryResults, setQueryResults] = React.useState<any[]>([]);
+  const [queryResults, setQueryResults] = React.useState<QueryResult[]>([]);
 
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const [isReindexing, setIsReindexing] = React.useState(false);
@@ -93,6 +98,8 @@ export default function DocumentCenterPage() {
   };
 
   React.useEffect(() => {
+    // The request synchronizes this screen with the authenticated API.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDocuments();
   }, [fetchDocuments]);
 
@@ -136,8 +143,8 @@ export default function DocumentCenterPage() {
 
       setUploadProgress(100);
       fetchDocuments();
-    } catch (err: any) {
-      alert("Error uploading document: " + err.message);
+    } catch (err: unknown) {
+      alert("Error uploading document: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

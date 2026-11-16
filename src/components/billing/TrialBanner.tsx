@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Clock, Zap, ArrowRight, CheckCircle2 } from "lucide-react"
+import { Clock, Zap, ArrowRight } from "lucide-react"
 
 interface UserSubscriptionProfile {
   createdAt?: string
@@ -13,6 +13,7 @@ interface UserSubscriptionProfile {
 
 export function TrialBanner() {
   const [profile, setProfile] = React.useState<UserSubscriptionProfile | null>(null)
+  const [now, setNow] = React.useState<number | null>(null)
 
   React.useEffect(() => {
     const fetchProfile = async () => {
@@ -29,7 +30,13 @@ export function TrialBanner() {
     fetchProfile()
   }, [])
 
-  if (!profile) return null
+  React.useEffect(() => {
+    // Read the clock after hydration so server and client renders stay stable.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNow(Date.now())
+  }, [])
+
+  if (!profile || now === null) return null
 
   const isPro = profile.subscriptionStatus === "active"
   const isPending = profile.subscriptionStatus === "pending_approval"
@@ -41,9 +48,8 @@ export function TrialBanner() {
     ? new Date(profile.trialEndsAt).getTime()
     : profile.createdAt
     ? new Date(profile.createdAt).getTime() + 90 * 24 * 60 * 60 * 1000
-    : Date.now() + 90 * 24 * 60 * 60 * 1000
+    : now + 90 * 24 * 60 * 60 * 1000
 
-  const now = Date.now()
   const diffTime = trialEnds - now
   const daysLeft = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
   const isExpired = daysLeft <= 0

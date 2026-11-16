@@ -9,7 +9,13 @@ export async function POST(request: NextRequest) {
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const payload = verifyJwt(token)
-    const body = await request.json().catch(() => ({}))
+    const body = (await request.json().catch(() => ({}))) as {
+      paymentMethod?: string
+      plan?: string
+      transactionId?: string
+      senderPhone?: string
+      note?: string
+    }
 
     const { paymentMethod, plan, transactionId, senderPhone, note } = body
 
@@ -36,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     // Update user status to pending_approval
     await db.collection('users').updateOne(
-      { _id: new ObjectId(payload.sub) as any },
+      { _id: new ObjectId(payload.sub) },
       {
         $set: {
           subscriptionStatus: 'pending_approval',
@@ -48,8 +54,11 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Payment verification request submitted successfully! An admin will approve it shortly.',
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Local payment submit error:', error)
-    return NextResponse.json({ error: error.message || 'Server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Server error' },
+      { status: 500 },
+    )
   }
 }

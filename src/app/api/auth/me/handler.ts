@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
 import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   const token = await getSessionTokenFromCookies()
   if (!token) return NextResponse.json({ user: null }, { status: 200 })
 

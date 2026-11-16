@@ -2,10 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { Navbar } from "@/components/ui/Navbar";
 
 export const PublicLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const currentYear = new Date().getFullYear();
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       {/* Navigation Header */}
@@ -133,7 +134,7 @@ export const PublicLayout: React.FC<{ children: React.ReactNode }> = ({ children
           </div>
 
           <div className="border-t border-border/40 mt-10 pt-6 flex flex-col md:flex-row items-center justify-between text-xs text-muted gap-4">
-            <span className="tracking-wide">&copy; {new Date().getFullYear()} AgentFlow Inc. All rights reserved.</span>
+            <span className="tracking-wide">&copy; {currentYear} AgentFlow Inc. All rights reserved.</span>
 
             <div className="flex gap-3 items-center">
               {["Twitter", "GitHub", "Discord"].map((s) => (

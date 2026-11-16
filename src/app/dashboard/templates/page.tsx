@@ -261,10 +261,12 @@ export default function TemplateMarketplacePage() {
     },
   ];
 
-  const categories = React.useMemo(() => {
-    const set = new Set<string>(templates.map((t) => t.category));
-    return ["All", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
-  }, [templates]);
+  const categories = [
+    "All",
+    ...Array.from(new Set(templates.map((t) => t.category))).sort((a, b) =>
+      a.localeCompare(b),
+    ),
+  ];
 
   const filteredTemplates = templates.filter((temp) => {
     const q = searchQuery.trim().toLowerCase();

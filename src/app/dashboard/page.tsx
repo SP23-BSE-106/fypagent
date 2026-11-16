@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Cpu, GitBranch, Terminal, Activity, ArrowUpRight, Plus, Sparkles, BookOpen, MessageSquare, Play, Settings, CheckCircle } from "lucide-react";
+import { Cpu, GitBranch, Terminal, Activity, Plus, Sparkles, BookOpen, MessageSquare, CheckCircle } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
+import { Card, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 

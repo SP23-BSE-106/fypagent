@@ -25,7 +25,6 @@ import { Input } from "@/components/ui/Input";
 import { Cpu, GitBranch, Terminal, Database, Trash2, Zap, Sliders, Send, Bot } from "lucide-react";
 
 // Custom node styling layout matching Vercel/Linear
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomNodeComponent = ({ data, selected }: { data: any; selected: boolean }) => {
   const Icon = data.icon;
   return (
@@ -82,9 +81,7 @@ const nodeTypes = {
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapWorkflowToCanvas(workflow: any) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const typeIcons: Record<string, { type: string; icon: any }> = {
     trigger: { type: "Input", icon: Zap },
     llm: { type: "LLM Node", icon: Cpu },
@@ -94,7 +91,6 @@ function mapWorkflowToCanvas(workflow: any) {
     output: { type: "Output", icon: Terminal },
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mappedNodes: Node[] = (workflow?.nodes || []).map((n: any, i: number) => {
     const mapInfo = typeIcons[n.type] || { type: "LLM Node", icon: Cpu };
     return {
@@ -110,7 +106,6 @@ function mapWorkflowToCanvas(workflow: any) {
     };
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mappedEdges: Edge[] = (workflow?.edges || []).map((e: any) => ({
     id: e.id,
     source: e.source,
@@ -193,8 +188,6 @@ function WorkflowBuilderInner() {
       return;
     }
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    const abortController = new AbortController();
     console.log("[LOAD] Fetching agent:", agentId);
     fetch(`/api/agents/${agentId}`, {
       credentials: 'include',
@@ -226,8 +219,8 @@ function WorkflowBuilderInner() {
 
   React.useEffect(() => {
     // Skip the very first render (initial load / workflow fetch)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     if (!initialLoadDone.current) {
+      // eslint-disable-next-line react-hooks/immutability
       initialLoadDone.current = true;
       console.log("[AUTO-SAVE] Initial load skipped, will save on next change");
       return;
@@ -306,7 +299,6 @@ function WorkflowBuilderInner() {
     }, 3000); // 3 second debounce
 
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges]);
 
   // ── Warn on unsaved changes before leaving ───────────────────────────
@@ -370,12 +362,15 @@ function WorkflowBuilderInner() {
     const newNode: Node = {
       id,
       type: "customNode",
-      position: { x: 100 + Math.random() * 200, y: 150 + Math.random() * 200 },
+      position: {
+        x: 100 + (nodes.length % 4) * 70,
+        y: 150 + Math.floor(nodes.length / 4) * 100,
+      },
       data: {
         label,
         type,
         description: `Set up details configuration inside parameters panel.`,
-        icon: (icons as any)[type] || Cpu,
+        icon: (icons as Record<string, typeof Cpu>)[type] || Cpu,
       },
     };
 

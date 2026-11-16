@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
 import { clearSessionToken } from '@/lib/auth/jwt'
 
-export async function POST(_request: NextRequest) {
+export async function POST() {
   await clearSessionToken()
   return NextResponse.json({ success: true })
 }

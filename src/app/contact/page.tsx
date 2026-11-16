@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Mail, MessageSquare, Send, Check } from "lucide-react";
 import { PublicLayout } from "@/components/layout/PublicLayout";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";

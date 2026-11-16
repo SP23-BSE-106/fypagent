@@ -42,17 +42,21 @@ function getAppOrigin(request: NextRequest) {
   return new URL(request.url).origin
 }
 
-function isStrongPassword(password: string) {
-  // Match the signup/reset policy in this codebase
-  return (
-    password.length >= 8 &&
-    /[A-Z]/.test(password) &&
-    /\d/.test(password) &&
-    /[^A-Za-z0-9]/.test(password)
-  )
+type ProfileUser = {
+  _id: ObjectId
+  email: string
+  passwordHash: string
+  emailVerified: boolean
+  fullName?: string
+  avatarUrl?: string | null
+  preferences?: Record<string, unknown>
+  createdAt?: Date
+  trialEndsAt?: Date
+  subscriptionPlan?: string
+  subscriptionStatus?: string
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const token = await getSessionTokenFromCookies()
   if (!token) return NextResponse.json({ user: null }, { status: 200 })
 
@@ -63,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     const user = await db
       .collection('users')
-      .findOne<{ _id: string } & Record<string, any>>({ _id: new ObjectId(payload.sub) as any })
+      .findOne<ProfileUser>({ _id: new ObjectId(payload.sub) })
 
 
     if (!user) return NextResponse.json({ user: null }, { status: 200 })
@@ -107,8 +111,7 @@ export async function POST(request: NextRequest) {
     fullName?: string
     email?: string
     avatarBase64?: string // base64 or data URL
-    preferences?: Record<string, any>
-
+    preferences?: Record<string, unknown>
 
   }
 
@@ -156,7 +159,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const currentUser = await users.findOne<{ _id: string; email: string; emailVerified: boolean; fullName?: string } & Record<string, any>>({ _id: new ObjectId(userId) } as any)
+  const currentUser = await users.findOne<ProfileUser>({ _id: new ObjectId(userId) })
   if (!currentUser) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
   const preferences = { ...(currentUser.preferences || {}), ...passedPreferences }
@@ -214,13 +217,13 @@ export async function POST(request: NextRequest) {
     })
 
     // Apply non-email changes immediately; keep email as-is until verification.
-    const update: Record<string, any> = {
+    const update: Record<string, unknown> = {
       ...(fullName ? { fullName } : {}),
       ...(avatarUrl !== undefined ? { avatarUrl: avatarUrl } : {}),
       preferences,
     }
 
-    await users.updateOne({ _id: new ObjectId(userId) } as any, { $set: update })
+    await users.updateOne({ _id: new ObjectId(userId) }, { $set: update })
 
     return NextResponse.json({
       success: true,
@@ -230,7 +233,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Not changing email: update directly.
-  const update: Record<string, any> = {
+  const update: Record<string, unknown> = {
     ...(fullName ? { fullName } : {}),
     ...(email ? { email } : {}),
     preferences,
@@ -238,7 +241,7 @@ export async function POST(request: NextRequest) {
 
   if (avatarUrl !== undefined) update.avatarUrl = avatarUrl
 
-  await users.updateOne({ _id: new ObjectId(userId) } as any, { $set: update })
+  await users.updateOne({ _id: new ObjectId(userId) }, { $set: update })
 
   return NextResponse.json({ success: true })
 }

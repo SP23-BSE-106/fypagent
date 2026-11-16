@@ -20,7 +20,10 @@ export async function POST(req: NextRequest) {
     const payload = verifyJwt(token)
     const userId = payload.sub
 
-    const body = await req.json().catch(() => ({}))
+    const body = (await req.json().catch(() => ({}))) as {
+      question?: string
+      topK?: number
+    }
     const { question, topK = 3 } = body
 
     if (!question || !question.trim()) {
@@ -30,7 +33,7 @@ export async function POST(req: NextRequest) {
     // ── Step 1: RAG Retrieval ──────────────────────────────────────────────
     let ragContext = ''
     let ragSources: { text: string; similarity: number; documentId: string }[] = []
-    let debugInfo = { userId, chunksFound: 0, embeddingError: null as any }
+    const debugInfo = { userId, chunksFound: 0, embeddingError: null as string | null }
 
     try {
       const queryVector = await generateEmbedding(question)
@@ -161,10 +164,10 @@ ${ragContext}
         documentId: s.documentId,
       })),
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('RAG Chat Error:', error)
     return NextResponse.json(
-      { error: error.message || 'RAG chat failed' },
+      { error: error instanceof Error ? error.message : 'RAG chat failed' },
       { status: 500 }
     )
   }

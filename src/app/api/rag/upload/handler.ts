@@ -153,12 +153,12 @@ export async function POST(req: NextRequest) {
 
     try {
       await chunksColl.insertMany(chunkRecords)
-    } catch (dbErr: any) {
+    } catch (dbErr: unknown) {
       console.error('[RAG Upload] MongoDB insert error:', dbErr)
       // Clean up the document record if chunks failed
       await documents.deleteOne({ _id: insertResult.insertedId })
       return NextResponse.json({ 
-        error: `Database error: ${dbErr.message || 'Failed to store chunks'}` 
+      error: `Database error: ${dbErr instanceof Error ? dbErr.message : 'Failed to store chunks'}`
       }, { status: 500 })
     }
 
@@ -175,13 +175,16 @@ export async function POST(req: NextRequest) {
       embeddingModel: EMBEDDING_MODEL,
       message: 'Document ingested, chunked, and embedded.',
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[RAG Upload] Error:', error)
-    return NextResponse.json({ error: error.message || 'Failed to upload document' }, { status: 500 })
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to upload document' },
+      { status: 500 },
+    )
   }
 }
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const token = await getSessionTokenFromCookies()
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -213,8 +216,11 @@ export async function GET(req: NextRequest) {
     )
 
     return NextResponse.json({ documents: formattedDocs })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Server error' }, { status: 500 })
+  } catch (error: unknown) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Server error' },
+      { status: 500 },
+    )
   }
 }
 

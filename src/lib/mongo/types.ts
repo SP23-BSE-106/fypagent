@@ -11,7 +11,7 @@ export type User = {
   avatarUrl?: string | null
   preferences?: {
     marketingEmails?: boolean
-    [key: string]: any
+    [key: string]: unknown
   }
 
   // Email verification

@@ -9,6 +9,8 @@ import { LayoutDashboard, GitBranch, Terminal, CloudLightning, BarChart3, Slider
 import { cn } from "@/lib/utils";
 
 interface SidebarProps { className?: string; }
+type SidebarUser = { fullName?: string; email?: string }
+
 export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [user, setUser] = React.useState<unknown>(null);
@@ -19,7 +21,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     const fetchUser = async () => {
       try {
         const res = await fetch('/api/auth/me')
-        const data = (await res.json().catch(() => ({}))) as { user?: any }
+        const data = (await res.json().catch(() => ({}))) as { user?: SidebarUser }
         setUser(data.user ?? null)
       } catch {
         setUser(null)
@@ -54,14 +56,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   ];
   const getUserInitials = () => {
     if (!user) return "??";
-    const u = user as { fullName?: string; email?: string };
+    const u = user as SidebarUser;
     const name = u.fullName || u.email || "";
     if (!name) return "??";
     return name.split(" ").map((p) => p[0]).join("").toUpperCase().slice(0, 2);
   };
   const getUserDisplayName = () => {
     if (!user) return "Loading...";
-    const u = user as { fullName?: string; email?: string };
+    const u = user as SidebarUser;
     return u.fullName || u.email?.split("@")[0] || "User";
   };
   return (
@@ -94,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       <div className="p-3 border-t border-border/40 bg-surface/30">
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="h-8.5 w-8.5 rounded-full bg-accent/20 border border-accent/20 flex items-center justify-center text-xs font-bold text-accent shrink-0">{loading ? "..." : getUserInitials()}</div>
-          {!isCollapsed && !loading && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="flex flex-col text-left overflow-hidden flex-1"><span className="text-xs font-bold text-foreground leading-none truncate">{getUserDisplayName()}</span><span className="text-[10px] text-muted truncate mt-1">{(user as { email?: string })?.email || ""}</span></motion.div>}
+          {!isCollapsed && !loading && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="flex flex-col text-left overflow-hidden flex-1"><span className="text-xs font-bold text-foreground leading-none truncate">{getUserDisplayName()}</span><span className="text-[10px] text-muted truncate mt-1">{(user as SidebarUser)?.email || ""}</span></motion.div>}
         </div>
         {!isCollapsed && <button onClick={handleSignOut} className="mt-3 w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"><LogOut className="h-4 w-4" />Sign Out</button>}
         {isCollapsed && <button onClick={handleSignOut} className="mt-2 mx-auto flex items-center justify-center p-2 rounded-lg text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Sign Out"><LogOut className="h-4 w-4" /></button>}

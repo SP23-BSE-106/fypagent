@@ -5,13 +5,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Send, RefreshCw, GitBranch, Sparkles, Database, Cpu, Terminal, ArrowLeft } from "lucide-react";
+import { Send, RefreshCw, ArrowLeft } from "lucide-react";
 import { BuilderLayout } from "@/components/layout/BuilderLayout";
 import { Button } from "@/components/ui/Button";
 
 function TestingSandboxInner() {
   const searchParams = useSearchParams();
-  const agentId = searchParams?.get("agentId");
   const agentName = searchParams?.get("name") || "Visual Workflow Canvas";
 
   const [input, setInput] = React.useState("");
@@ -128,6 +127,7 @@ function TestingSandboxInner() {
 
   // Initialize logs with proper timestamps after hydration (client-side only)
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLogs([
       { type: "sys", text: `Sandbox virtual execution engine connected: ${agentName}`, time: new Date().toLocaleTimeString() },
       { type: "sys", text: "Ready for node graph parameter evaluation & RAG retriever test.", time: new Date().toLocaleTimeString() }

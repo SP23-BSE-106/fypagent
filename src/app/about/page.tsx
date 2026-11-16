@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import { PublicLayout } from "@/components/layout/PublicLayout";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Cpu, GitBranch, Terminal, Shield, Check } from "lucide-react";
+import { Check } from "lucide-react";
 
 export default function AboutPage() {
   const stack = [

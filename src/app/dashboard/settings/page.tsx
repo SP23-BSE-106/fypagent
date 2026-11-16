@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
-import { Key, Shield, Bell, Plus, Trash2, Check, Copy } from "lucide-react";
+import { Key, Shield, Bell, Plus, Trash2, Copy } from "lucide-react";
 
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -13,10 +12,16 @@ import { Input } from "@/components/ui/Input";
 
 
 export default function SettingsPage() {
-  const router = useRouter();
+  type PersonalKey = {
+    id: string;
+    name: string;
+    prefix: string;
+    createdAt: string;
+    lastUsedAt?: string | null;
+  };
 
   // Personal API Keys
-  const [personalKeys, setPersonalKeys] = React.useState<any[]>([]);
+  const [personalKeys, setPersonalKeys] = React.useState<PersonalKey[]>([]);
   const [newKey, setNewKey] = React.useState<{ key: string; name: string } | null>(null);
   const [keyName, setKeyName] = React.useState("");
   const [isGeneratingKey, setIsGeneratingKey] = React.useState(false);
@@ -80,8 +85,8 @@ export default function SettingsPage() {
       setPersonalKeys((prev) => [data.keyRecord, ...prev]);
       setNewKey({ key: data.key, name: data.keyRecord.name });
       setKeyName("");
-    } catch (err: any) {
-      setKeyError(err.message || "Failed to generate key");
+    } catch (err: unknown) {
+      setKeyError(err instanceof Error ? err.message : "Failed to generate key");
     } finally {
       setIsGeneratingKey(false);
     }

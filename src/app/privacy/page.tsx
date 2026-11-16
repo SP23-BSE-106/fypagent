@@ -1,15 +1,16 @@
 "use client";
 
-import * as React from "react";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 
 export default function PrivacyPage() {
+  const lastUpdatedDate = new Date().toLocaleDateString();
+
   return (
     <PublicLayout>
       <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16">
         <h1 className="text-3xl sm:text-4xl font-black text-white mb-6">Privacy Policy</h1>
         <p className="text-sm text-muted mb-8">
-          Last updated: <span className="text-foreground">{new Date().toLocaleDateString()}</span>
+          Last updated: <span className="text-foreground">{lastUpdatedDate}</span>
         </p>
 
         <section className="space-y-6 text-sm text-white/70 leading-relaxed">

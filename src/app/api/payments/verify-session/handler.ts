@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       const oneMonthFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
       await users.updateOne(
-        { _id: new ObjectId(payload.sub) as any },
+        { _id: new ObjectId(payload.sub) },
         {
           $set: {
             subscriptionStatus: 'active',
@@ -46,8 +46,11 @@ export async function POST(req: NextRequest) {
     } else {
       return NextResponse.json({ error: 'Payment incomplete or pending' }, { status: 400 })
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Verify checkout session error:', error)
-    return NextResponse.json({ error: error.message || 'Server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Server error' },
+      { status: 500 },
+    )
   }
 }

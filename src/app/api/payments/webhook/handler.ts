@@ -1,38 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type Stripe from 'stripe'
 import { ObjectId } from 'mongodb'
 import { getDb } from '@/lib/mongo/mongo'
 import { getStripe } from '@/lib/stripe'
-import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
 
 export async function POST(req: NextRequest) {
   const bodyText = await req.text()
   const sig = req.headers.get('stripe-signature')
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
 
-  let event: any
+  if (!webhookSecret || !sig) {
+    console.error('Webhook rejected: missing signing secret or Stripe signature')
+    return NextResponse.json(
+      { error: 'Webhook signature verification required' },
+      { status: 400 },
+    )
+  }
+
+  let event: Stripe.Event
 
   try {
-    if (webhookSecret && sig) {
-      event = getStripe().webhooks.constructEvent(bodyText, sig, webhookSecret)
-    } else {
-      event = JSON.parse(bodyText)
-    }
-  } catch (err: any) {
-    console.error('Webhook signature verification failed:', err.message)
-    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 })
+    event = getStripe().webhooks.constructEvent(bodyText, sig, webhookSecret)
+  } catch (error: unknown) {
+    console.error(
+      'Webhook signature verification failed:',
+      error instanceof Error ? error.message : 'Invalid webhook payload',
+    )
+    return NextResponse.json(
+      { error: 'Invalid webhook signature or payload' },
+      { status: 400 },
+    )
   }
 
   const db = await getDb()
   const users = db.collection('users')
 
   if (event.type === 'checkout.session.completed') {
-    const session = event.data.object
+    const session = event.data.object as Stripe.Checkout.Session
     const customerEmail = session.customer_details?.email || session.customer_email || session.metadata?.userEmail
     const userId = session.metadata?.userId
 
     const oneMonthFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
-    let updateQuery: any = {
+    const updateQuery = {
       $set: {
         subscriptionStatus: 'active',
         subscriptionPlan: 'pro',
@@ -45,8 +55,8 @@ export async function POST(req: NextRequest) {
 
     if (userId) {
       try {
-        await users.updateOne({ _id: new ObjectId(userId) as any }, updateQuery)
-      } catch (err) {
+        await users.updateOne({ _id: new ObjectId(userId) }, updateQuery)
+      } catch {
         if (customerEmail) {
           await users.updateOne({ email: customerEmail.toLowerCase() }, updateQuery)
         }

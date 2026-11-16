@@ -1,16 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { CloudLightning, Copy, Check, Eye, EyeOff, Plus, FileCode, Globe, Key } from "lucide-react";
+import { Copy, Check, Eye, EyeOff, Globe, Key } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 
 export default function DeploymentCenterPage() {
   const [copiedText, setCopiedText] = React.useState<string | null>(null);
   const [showKey, setShowKey] = React.useState(false);
-  const [apiKey, setApiKey] = React.useState("sk_live_agentflow_5bee7c494a3b8e2e8f000b0f14");
+  const apiKey = "sk_live_agentflow_5bee7c494a3b8e2e8f000b0f14";
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);

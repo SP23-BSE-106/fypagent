@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
 import { ObjectId } from 'mongodb'
 
@@ -62,16 +61,16 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const user = await users.findOne<{ passwordHash: string } & Record<string, any>>(
-    { _id: new ObjectId(userId) } as any,
-  )
+  const user = await users.findOne<{ passwordHash: string } & Record<string, unknown>>({
+    _id: new ObjectId(userId),
+  })
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
   const ok = await bcrypt.compare(currentPassword, user.passwordHash)
   if (!ok) return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 })
 
   const newHash = await bcrypt.hash(newPassword, 10)
-  await users.updateOne({ _id: new ObjectId(userId) } as any, { $set: { passwordHash: newHash } })
+  await users.updateOne({ _id: new ObjectId(userId) }, { $set: { passwordHash: newHash } })
 
   return NextResponse.json({ success: true })
 }

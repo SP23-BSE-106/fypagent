@@ -6,7 +6,7 @@ import { getDb } from '@/lib/mongo/mongo'
 import { rateLimit } from '@/lib/rateLimit'
 import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const token = await getSessionTokenFromCookies()
     if (!token) return NextResponse.json({ error: 'Not logged in' }, { status: 401 })

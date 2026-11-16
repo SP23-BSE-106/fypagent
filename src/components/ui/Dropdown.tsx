@@ -10,7 +10,7 @@ interface DropdownContextProps {
 
 const DropdownContext = React.createContext<DropdownContextProps | null>(null);
 
-export interface DropdownProps extends React.HTMLAttributes<HTMLDivElement> {}
+export type DropdownProps = React.HTMLAttributes<HTMLDivElement>;
 
 export const Dropdown: React.FC<DropdownProps> = ({ children, className, ...props }) => {
   const [isOpen, setIsOpen] = React.useState(false);
@@ -41,7 +41,9 @@ export const Dropdown: React.FC<DropdownProps> = ({ children, className, ...prop
   );
 };
 
-export const DropdownTrigger: React.FC<{ children: React.ReactElement<any> }> = ({ children }) => {
+export const DropdownTrigger: React.FC<{
+  children: React.ReactElement<{ onClick?: (event: React.MouseEvent) => void }>;
+}> = ({ children }) => {
   const context = React.useContext(DropdownContext);
   if (!context) throw new Error("DropdownTrigger must be used inside Dropdown");
 

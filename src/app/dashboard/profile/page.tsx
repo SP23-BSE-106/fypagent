@@ -16,13 +16,19 @@ type ProfileResponse = {
     email?: string;
     fullName?: string;
     avatarUrl?: string | null;
-    preferences?: Record<string, any>;
+    preferences?: Record<string, unknown>;
     emailVerified?: boolean;
   };
 };
 
 type Preferences = {
   marketingEmails?: boolean;
+};
+
+type ProfileActionResponse = {
+  error?: string;
+  message?: string;
+  emailChangePendingVerification?: boolean;
 };
 
 export default function ProfilePage() {
@@ -114,7 +120,7 @@ export default function ProfilePage() {
         }),
       });
 
-      const data = (await res.json().catch(() => ({}))) as any;
+      const data = (await res.json().catch(() => ({}))) as ProfileActionResponse;
 
       if (!res.ok || data.error) {
         throw new Error(data.error || "Failed to save profile");
@@ -130,8 +136,8 @@ export default function ProfilePage() {
       setTimeout(() => setIsSaved(false), 2500);
 
       await refreshProfile();
-    } catch (err: any) {
-      setStatusError(err?.message || "Failed to save profile");
+    } catch (err: unknown) {
+      setStatusError(err instanceof Error ? err.message : "Failed to save profile");
     } finally {
       setIsSaving(false);
     }
@@ -155,7 +161,7 @@ export default function ProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentPassword, newPassword }),
       });
-      const data = (await res.json().catch(() => ({}))) as any;
+      const data = (await res.json().catch(() => ({}))) as ProfileActionResponse;
 
       if (!res.ok || data.error) {
         throw new Error(data.error || "Failed to change password");
@@ -165,8 +171,8 @@ export default function ProfilePage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (err: any) {
-      setPasswordStatusError(err?.message || "Failed to change password");
+    } catch (err: unknown) {
+      setPasswordStatusError(err instanceof Error ? err.message : "Failed to change password");
     } finally {
       setIsChangingPassword(false);
     }

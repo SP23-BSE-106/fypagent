@@ -11,7 +11,6 @@ function buildMockWorkflow(prompt: string): WorkflowGraph {
   const words = prompt.toLowerCase()
   const hasKnowledge = words.includes('knowledge') || words.includes('doc') || words.includes('pdf') || words.includes('search') || words.includes('faq')
   const hasAction = words.includes('send') || words.includes('email') || words.includes('notify') || words.includes('update') || words.includes('post') || words.includes('api') || words.includes('webhook')
-  const hasDecision = words.includes('if') || words.includes('condition') || words.includes('route') || words.includes('classify')
   const hasDatabase = words.includes('database') || words.includes('crm') || words.includes('record') || words.includes('save') || words.includes('log')
 
   const nodes = [

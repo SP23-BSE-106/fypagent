@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
+import type Stripe from 'stripe'
 import { getStripe } from '@/lib/stripe'
 import { getSessionTokenFromCookies, verifyJwt } from '@/lib/auth/jwt'
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
     const token = await getSessionTokenFromCookies()
     let userEmail: string | undefined = undefined
@@ -13,17 +14,14 @@ export async function POST(req: Request) {
         const payload = verifyJwt(token)
         userEmail = payload.email
         userId = payload.sub
-      } catch (err) {
+      } catch {
         // Continue if no valid session
       }
     }
 
-    const body = await req.json().catch(() => ({}))
-    const mode = body.mode || 'subscription'
-
     const domain = process.env.DOMAIN || 'http://localhost:3000'
 
-    const sessionParams: any = {
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       ui_mode: 'hosted_page',
       billing_address_collection: 'auto',
       phone_number_collection: {
@@ -36,7 +34,7 @@ export async function POST(req: Request) {
       submit_type: 'auto',
       integration_identifier: 'hosted_web_0001',
       origin_context: 'web',
-      mode,
+      mode: 'subscription',
       customer_email: userEmail || undefined,
       metadata: {
         userId: userId || '',
@@ -44,7 +42,7 @@ export async function POST(req: Request) {
       },
       success_url: `${domain}/dashboard/payment?session_id={CHECKOUT_SESSION_ID}&success=true`,
       cancel_url: `${domain}/dashboard/payment?canceled=true`,
-      line_items: body.line_items || [
+      line_items: [
         {
           price_data: {
             currency: 'usd',
@@ -62,17 +60,15 @@ export async function POST(req: Request) {
       ],
     }
 
-    if (mode === 'subscription') {
-      sessionParams.payment_method_collection = 'always'
-    }
+    sessionParams.payment_method_collection = 'always'
 
     const session = await getStripe().checkout.sessions.create(sessionParams)
 
     return NextResponse.json({ url: session.url, sessionId: session.id })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating Stripe checkout session:', error)
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }

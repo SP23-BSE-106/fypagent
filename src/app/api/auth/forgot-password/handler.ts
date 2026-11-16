@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { ObjectId } from 'mongodb'
 
 import { getDb } from '@/lib/mongo/mongo'
 import { rateLimit } from '@/lib/rateLimit'
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
   const db = await getDb()
   const users = db.collection('users')
 
-  const user = await users.findOne<{ _id: string; email: string } | null>({ email })
+  const user = await users.findOne<{ _id: ObjectId; email: string } | null>({ email })
 
   // Always return the same response to avoid account enumeration.
   if (!user) {
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
 
   await users.updateOne(
     // mongodb driver typings may expect ObjectId; runtime uses string IDs in this app
-    ({ _id: user._id } as any),
+    { _id: user._id },
 
     {
       $set: {

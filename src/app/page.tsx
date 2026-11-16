@@ -17,8 +17,6 @@ import {
 } from "lucide-react";
 
 import { PublicLayout } from "@/components/layout/PublicLayout";
-import { ThreeBackground } from "@/components/ui/ThreeBackground";
-import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
 // Lazy‑load the heavy Three.js canvas so it never SSR-crashes
